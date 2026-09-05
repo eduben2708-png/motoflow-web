@@ -1,0 +1,96 @@
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #0f1729; color: #fff; }
+.container { max-width: 600px; margin: 0 auto; padding: 20px; }
+.login-screen { display: flex; flex-direction: column; justify-content: center; min-height: 100vh; }
+.logo { font-size: 48px; text-align: center; margin-bottom: 10px; }
+.title { font-size: 24px; text-align: center; color: #8899bb; margin-bottom: 40px; }
+.card { background: #1a2540; padding: 30px; border-radius: 16px; }
+.form-group { margin-bottom: 20px; }
+.label { display: block; color: #8899bb; font-size: 14px; margin-bottom: 8px; }
+input, select { width: 100%; padding: 12px; background: #0f1729; border: 1px solid #444; border-radius: 8px; color: #fff; font-size: 16px; }
+input::placeholder, select::placeholder { color: #666; }
+button { width: 100%; padding: 12px; background: #2563eb; color: #fff; border: none; border-radius: 8px; font-size: 16px; font-weight: bold; cursor: pointer; margin-top: 8px; }
+button:hover { background: #1d4ed8; }
+.hidden { display: none !important; }
+.form-group:has(#tipoServicio option[value="encargo"]:checked) + #grupoMontoPedido { display: block !important; }
+.form-group:has(#tipoServicio option[value="encargo"]:checked) ~ #desgloseTarifa #filaMontoCompra,
+.form-group:has(#tipoServicio option[value="encargo"]:checked) ~ #desgloseTarifa #filaComision { display: flex !important; }
+.dashboard { display: flex; flex-direction: column; min-height: 100vh; }
+.header { background: #1a2540; padding: 20px; display: flex; justify-content: space-between; align-items: center; }
+.header-info h2 { font-size: 24px; margin-bottom: 4px; }
+.header-info p { font-size: 12px; color: #8899bb; }
+.btn-logout { padding: 8px 16px; background: #f44336; border: none; color: #fff; border-radius: 6px; cursor: pointer; }
+.nav-buttons { display: flex; gap: 8px; padding: 12px; background: #1a2540; overflow-x: auto; }
+.nav-btn { flex: 1; padding: 10px; background: #2563eb; color: #fff; border: none; border-radius: 8px; cursor: pointer; font-size: 11px; white-space: nowrap; }
+.nav-btn.active { background: #4caf50; }
+.content { flex: 1; overflow-y: auto; padding: 16px; }
+#mapaCrear { width: 100%; height: 350px; border-radius: 8px; margin-bottom: 16px; border: 2px solid #444; }
+.mapa-info { background: #1a2540; padding: 12px; border-radius: 8px; margin-bottom: 12px; font-size: 12px; color: #8899bb; }
+#mapa { width: 100%; height: 400px; border-radius: 8px; margin-bottom: 16px; }
+.chat-container { display: flex; flex-direction: column; height: 500px; background: #1a2540; border-radius: 8px; }
+.chat-mensajes { flex: 1; overflow-y: auto; padding: 16px; display: flex; flex-direction: column; gap: 12px; }
+.mensaje { padding: 10px 12px; border-radius: 8px; max-width: 80%; word-wrap: break-word; }
+.mensaje-cliente { align-self: flex-end; background: #2563eb; }
+.mensaje-repartidor { align-self: flex-start; background: #4caf50; }
+.mensaje-hora { font-size: 10px; color: #8899bb; }
+.chat-input { padding: 12px; display: flex; gap: 8px; border-top: 1px solid #0f1729; }
+.chat-input input { flex: 1; padding: 8px; background: #0f1729; border: 1px solid #444; }
+.chat-input button { flex: 0.2; padding: 8px; }
+.notificacion { background: #4caf50; padding: 12px; border-radius: 8px; margin-bottom: 12px; }
+.pedido-card { background: #1a2540; padding: 16px; border-radius: 8px; margin-bottom: 12px; border-left: 4px solid #2563eb; }
+.pedido-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+.pedido-id { font-weight: bold; }
+.estado { padding: 4px 12px; border-radius: 20px; font-size: 11px; }
+.estado.pendiente { background: #ff9800; }
+.estado.asignado { background: #2196f3; }
+.estado.en_retiro { background: #f59e0b; }
+.estado.en_camino { background: #4caf50; }
+.estado.entregado { background: #8bc34a; }
+.filtros { display: flex; gap: 8px; padding: 12px; background: #0f1729; }
+.filtro-btn { padding: 8px 16px; background: #1a2540; border: 1px solid #444; color: #8899bb; border-radius: 20px; cursor: pointer; font-size: 12px; }
+.filtro-btn.active { background: #2563eb; color: #fff; border-color: #2563eb; }
+.repartidor-card { background: #1a2540; padding: 16px; border-radius: 8px; margin-bottom: 12px; }
+.repartidor-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+.online { color: #4caf50; font-weight: bold; }
+.info-row { display: flex; justify-content: space-around; margin-bottom: 12px; padding-bottom: 12px; border-bottom: 1px solid #0f1729; text-align: center; }
+.stat-label { font-size: 12px; color: #8899bb; }
+.stat-value { font-size: 16px; font-weight: bold; color: #fff; }
+.btn-asignar { width: 100%; padding: 10px; background: #2563eb; border: none; color: #fff; border-radius: 6px; cursor: pointer; font-size: 12px; }
+.admin-titulo { font-size: 20px; margin-bottom: 4px; }
+.admin-subtitulo { color: #8899bb; font-size: 13px; margin-bottom: 16px; }
+.admin-estadisticas { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-bottom: 16px; }
+.admin-estadistica { background: #1a2540; padding: 14px; border-radius: 10px; border-left: 4px solid #2563eb; }
+.admin-estadistica .numero { display: block; font-size: 24px; font-weight: bold; margin-top: 4px; }
+.admin-pedido { background: #1a2540; padding: 16px; border-radius: 10px; margin-bottom: 12px; border-left: 4px solid #2563eb; }
+.admin-fila { display: flex; justify-content: space-between; gap: 12px; margin: 8px 0; font-size: 13px; color: #cbd5e1; }
+.admin-control { margin-top: 12px; }
+.admin-control label { display: block; font-size: 12px; color: #8899bb; margin-bottom: 5px; }
+.admin-control select { padding: 9px; font-size: 13px; }
+.admin-acciones { display: flex; gap: 8px; margin-top: 10px; }
+.admin-acciones button { margin: 0; padding: 10px; font-size: 12px; }
+.registro-repartidor { background: #1a2540; padding: 16px; border-radius: 10px; margin-bottom: 16px; }
+.registro-repartidor h3 { font-size: 17px; margin-bottom: 4px; }
+.registro-repartidor p { color: #8899bb; font-size: 12px; margin-bottom: 14px; }
+.registro-repartidor-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.registro-repartidor-grid .form-group { margin-bottom: 0; }
+.registro-repartidor-grid input { padding: 10px; font-size: 14px; }
+.repartidor-panel { background: #1a2540; padding: 16px; border-radius: 10px; margin-bottom: 16px; }
+.repartidor-panel h3 { font-size: 20px; margin-bottom: 4px; }
+.repartidor-panel p { color: #8899bb; font-size: 13px; margin-bottom: 14px; }
+.gps-estado { background: #0f1729; color: #93c5fd; padding: 10px; border-radius: 8px; font-size: 12px; margin-bottom: 12px; }
+.repartidor-acciones { display: flex; gap: 8px; margin-top: 12px; }
+.repartidor-acciones button { margin: 0; padding: 10px; font-size: 13px; }
+.btn-entregar { background: #4caf50; }
+.btn-gps { background: #0ea5e9; margin-top: 0; }
+.no-data { text-align: center; color: #8899bb; padding: 40px; }
+.desglose-box { background: #0f1729; padding: 16px; border-radius: 8px; margin-bottom: 16px; }
+.desglose-row { display: flex; justify-content: space-between; font-size: 14px; color: #8899bb; margin-bottom: 8px; }
+.desglose-total { border-top: 1px solid #444; padding-top: 12px; margin-top: 12px; font-size: 16px; color: #2196f3; font-weight: bold; }
+.instruccion { background: #1a2540; padding: 12px; border-radius: 8px; margin-bottom: 12px; font-size: 13px; color: #4caf50; border-left: 3px solid #4caf50; }
+.punto-marcado { background: #2196f3; padding: 12px; border-radius: 8px; margin-bottom: 12px; font-size: 13px; color: #fff; }
+.acciones-puntos { display: flex; gap: 8px; margin: 12px 0 16px; }
+.acciones-puntos button { width: auto; flex: 1; margin: 0; padding: 10px 8px; font-size: 12px; }
+.btn-editar-punto { background: #475569; }
+.btn-editar-punto:hover { background: #64748b; }
+.btn-limpiar-puntos { background: #b91c1c; }
+.btn-limpiar-puntos:hover { background: #dc2626; }
