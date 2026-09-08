@@ -5,7 +5,7 @@ async function enviarCodigo() {
     return;
   }
   try {
-       const res = await fetch(`${API_URL}/api/auth/send-code`, {
+    const res = await fetch(`${API_URL}/api/auth/send-code`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ telefono })
@@ -25,7 +25,8 @@ async function verificarCodigo() {
   const telefono = document.getElementById('telefono').value;
   const codigo = document.getElementById('codigo').value;
   try {
-    const res = await fetch(`${API_URL}/auth/verify-code`, {
+    // CORREGIDO: Se agregó /api/ a la ruta
+    const res = await fetch(`${API_URL}/api/auth/verify-code`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ telefono, codigo })
@@ -81,7 +82,8 @@ function configurarMenuSegunCuenta() {
 }
 
 async function obtenerMiRepartidor() {
-  const respuesta = await fetch(`${API_URL}/repartidores`);
+  // CORREGIDO: Se agregó /api/ a la ruta
+  const respuesta = await fetch(`${API_URL}/api/repartidores`);
   if (!respuesta.ok) throw new Error('No se pudieron cargar los repartidores');
   const repartidores = await respuesta.json();
   return repartidores.find(repartidor => Number(repartidor.usuario_id) === Number(usuarioId)) || null;
