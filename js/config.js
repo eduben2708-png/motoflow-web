@@ -1,7 +1,6 @@
 // URL del backend - Se actualiza después del despliegue en Railway
 // Por ahora apunta a localhost para pruebas locales
-let API_URL = 'http://localhost:5000/api';
-
+let API_URL = "https://motoflow-backend.onrender.com";
 // Si querés probar con Railway después, cambiá por:
 // let API_URL = 'https://motoflow-backend-production.up.railway.app/api';
 
