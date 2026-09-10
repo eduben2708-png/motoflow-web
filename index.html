@@ -55,6 +55,7 @@
 
       <div class="content">
         <div id="seccionPedidos"><h3>Mis Pedidos</h3><div id="listaPedidos"></div></div>
+        
         <div id="seccionChat" class="hidden">
           <h3>Chat del Pedido</h3>
           <div id="chatMensajes" class="chat-container"></div>
@@ -63,11 +64,13 @@
             <button onclick="enviarMensaje()">Enviar</button>
           </div>
         </div>
+        
         <div id="seccionMapa" class="hidden">
           <h3>Mapa en Tiempo Real</h3>
           <div id="mapa" style="height: 400px;"></div>
           <div id="mapaDetalles" class="info-box"></div>
         </div>
+        
         <div id="seccionCrear" class="hidden">
           <h3>Crear Nuevo Pedido</h3>
           <div class="form-group">
@@ -110,12 +113,14 @@
           </div>
           <button onclick="crearPedidoConTarifa()" class="btn-primary">Confirmar Pedido</button>
         </div>
+        
         <div id="seccionAdmin" class="hidden">
           <h3>Panel administrador</h3>
           <p class="subtitle">Control de pedidos, asignaciones y estados.</p>
           <div id="adminEstadisticas" class="stats-grid"></div>
           <div id="listaAdminPedidos"></div>
         </div>
+        
         <div id="seccionMiRuta" class="hidden">
           <h3>Mi ruta de reparto</h3>
           <p class="subtitle">Acá verás únicamente los pedidos asignados a tu cuenta.</p>
@@ -123,6 +128,7 @@
           <button onclick="actualizarGpsMiRepartidor()" class="btn-primary">Activar GPS automático</button>
           <div id="listaMiRuta"></div>
         </div>
+        
         <div id="seccionRepartidores" class="hidden">
           <h3>Registrar repartidor</h3>
           <p class="subtitle">Quedará pendiente hasta que lo apruebes.</p>
@@ -141,6 +147,7 @@
           </div>
           <div id="listaRepartidores"></div>
         </div>
+        
         <div id="seccionHistorial" class="hidden">
           <h3>Historial de pedidos</h3>
           <div class="filtros-historial">
