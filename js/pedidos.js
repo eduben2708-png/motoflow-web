@@ -20,7 +20,7 @@ function actualizarFormularioServicio() {
 
 async function crearPedidoConTarifa() {
   if (!puntoRetiro || !puntoEntrega) {
-    alert('Marca ambos puntos en el mapa');
+    alert('Marcá ambos puntos en el mapa');
     return;
   }
   const referenciaRetiro = document.getElementById('referenciaRetiro').value.trim();
@@ -32,7 +32,7 @@ async function crearPedidoConTarifa() {
   const tipoServicio = document.getElementById('tipoServicio').value;
   const montoCompra = parseInt(document.getElementById('montoPedido').value) || 0;
   if (tipoServicio === 'encargo' && montoCompra <= 0) {
-    alert('Ingresa el monto de la compra');
+    alert('Ingresá el monto de la compra');
     return;
   }
   const distanciaKm = await calcularDistanciaOSRM(
@@ -48,7 +48,7 @@ async function crearPedidoConTarifa() {
   const totalCobro = tarifaMotoflow + (tipoServicio === 'encargo' ? montoCompra + comisionEncargo : 0);
   
   try {
-    // CORREGIDO: Agregado /api/
+    // ✅ CORREGIDO: Se agregó /api/
     const res = await fetch(`${API_URL}/api/pedidos`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -76,6 +76,7 @@ async function crearPedidoConTarifa() {
         ? `Repartidor #${data.repartidor_id} asignado automáticamente.`
         : 'Quedó pendiente porque no hay repartidores con GPS activo.';
       alert(`Pedido creado. Total a pagar: ${totalCobro.toLocaleString('es-PY')} Gs. ${mensajeAsignacion}`);
+      
       puntoRetiro = null;
       puntoEntrega = null;
       document.getElementById('montoPedido').value = '';
@@ -86,6 +87,7 @@ async function crearPedidoConTarifa() {
       document.getElementById('puntoEntrega').classList.add('hidden');
       if (marcadorRetiro) mapaCrear.removeLayer(marcadorRetiro);
       if (marcadorEntrega) mapaCrear.removeLayer(marcadorEntrega);
+      
       mostrarSeccion('pedidos');
       await cargarPedidos();
     }
@@ -96,13 +98,13 @@ async function crearPedidoConTarifa() {
 
 async function cargarPedidos() {
   try {
-    // CORREGIDO: Agregado /api/
+    // ✅ CORREGIDO: Se agregó /api/
     const res = await fetch(`${API_URL}/api/pedidos`);
     const data = await res.json();
     const misPedidos = data.filter(p => p.cliente_id === usuarioId);
     let html = '';
     if (misPedidos.length === 0) {
-      html = '<div class="no-data">No tienes pedidos aún</div>';
+      html = '<div class="no-data">No tenés pedidos aún</div>';
     } else {
       misPedidos.forEach(p => {
         html += `
@@ -128,13 +130,13 @@ async function cargarPedidos() {
 function actualizarInstruccionMapa() {
   const instruccion = document.getElementById('instruccionMapa');
   if (modoEdicionPunto === 'retiro') {
-    instruccion.textContent = 'Haz clic en el mapa para elegir el nuevo punto de RETIRO.';
+    instruccion.textContent = 'Hacé clic en el mapa para elegir el nuevo punto de RETIRO.';
   } else if (modoEdicionPunto === 'entrega') {
-    instruccion.textContent = 'Haz clic en el mapa para elegir el nuevo punto de ENTREGA.';
+    instruccion.textContent = 'Hacé clic en el mapa para elegir el nuevo punto de ENTREGA.';
   } else if (!puntoRetiro) {
-    instruccion.textContent = ' Paso 1: Haz clic en el mapa para marcar el PUNTO DE RETIRO';
+    instruccion.textContent = '📍 Paso 1: Hacé clic en el mapa para marcar el PUNTO DE RETIRO';
   } else if (!puntoEntrega) {
-    instruccion.textContent = '📍 Paso 2: Haz clic en el mapa para marcar el PUNTO DE ENTREGA';
+    instruccion.textContent = '📍 Paso 2: Hacé clic en el mapa para marcar el PUNTO DE ENTREGA';
   } else {
     instruccion.textContent = '✅ Puntos listos. Podés editarlos o limpiar el mapa.';
   }
@@ -206,7 +208,7 @@ function inicializarMapaCrear() {
   mapaCrear.on('click', function(e) {
     const tipo = modoEdicionPunto || (!puntoRetiro ? 'retiro' : (!puntoEntrega ? 'entrega' : null));
     if (!tipo) {
-      alert('Usa Editar retiro, Editar entrega o Limpiar para modificar los puntos.');
+      alert('Usá "Editar retiro", "Editar entrega" o "Limpiar" para modificar los puntos.');
       return;
     }
     colocarPunto(tipo, e.latlng);
@@ -218,7 +220,7 @@ function iniciarNotificaciones() {
   setInterval(async () => {
     if (usuarioId) {
       try {
-        // CORREGIDO: Agregado /api/
+        // ✅ CORREGIDO: Se agregó /api/
         const res = await fetch(`${API_URL}/api/pedidos`);
         const pedidos = await res.json();
         const misPedidos = pedidos.filter(p => p.cliente_id === usuarioId);
