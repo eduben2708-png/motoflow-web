@@ -47,7 +47,8 @@ async function cargarPanelMiRuta(verificarNuevos = false) {
     estadoGps.textContent = repartidor.gps_activo
       ? 'Ubicación GPS: activa. Estás disponible para asignaciones automáticas.'
       : 'Ubicación GPS: desactivada. Tocá el botón para activarla.';
-    const respuestaPedidos = await fetch(`${API_URL}/pedidos`);
+    // ✅ CORREGIDO: Se agregó /api/
+    const respuestaPedidos = await fetch(`${API_URL}/api/pedidos`);
     if (!respuestaPedidos.ok) throw new Error('No se pudieron cargar los pedidos');
     const pedidos = await respuestaPedidos.json();
     const misPedidos = pedidos
@@ -79,14 +80,14 @@ async function cargarPanelMiRuta(verificarNuevos = false) {
         : pedido.estado === 'en_retiro'
         ? `<button onclick="actualizarEstadoMiPedido(${pedido.id}, 'en_camino', null, '${coordenadasPedido(pedido, 'destino')}')">Paquete retirado</button>`
         : `
-<select id="pagoFinal-${pedido.id}" style="margin:0; padding:10px; font-size:13px;">
-<option value="">¿Cómo abonó el cliente?</option>
-<option value="efectivo">Efectivo al repartidor</option>
-<option value="transferencia">Transferencia</option>
-<option value="qr">Pago por QR</option>
-</select>
-<button class="btn-entregar" onclick="entregarPedido(${pedido.id})">Marcar como entregado</button>
-`;
+          <select id="pagoFinal-${pedido.id}" style="margin:0; padding:10px; font-size:13px;">
+            <option value="">¿Cómo abonó el cliente?</option>
+            <option value="efectivo">Efectivo al repartidor</option>
+            <option value="transferencia">Transferencia</option>
+            <option value="qr">Pago por QR</option>
+          </select>
+          <button class="btn-entregar" onclick="entregarPedido(${pedido.id})">Marcar como entregado</button>
+        `;
       const destinoNavegacion = ['asignado', 'en_retiro'].includes(pedido.estado)
         ? coordenadasPedido(pedido, 'origen')
         : coordenadasPedido(pedido, 'destino');
@@ -94,26 +95,26 @@ async function cargarPanelMiRuta(verificarNuevos = false) {
         ? 'Navegar al retiro'
         : 'Navegar a la entrega';
       return `
-<div class="pedido-card">
-<div class="pedido-header">
-<div class="pedido-id">Pedido #${pedido.id}</div>
-<div class="estado ${pedido.estado}">${formatearEstado(pedido.estado)}</div>
-</div>
-<div style="font-size: 13px; color: #cbd5e1; line-height: 1.7;">
-<div>📍 <strong>Retiro:</strong> ${pedido.origen_direccion || 'Sin dirección'}</div>
-<div>📍 <strong>Entrega:</strong> ${pedido.destino_direccion || 'Sin dirección'}</div>
-<div> <strong>Servicio:</strong> ${pedido.tipo}</div>
-<div>📏 <strong>Distancia del servicio:</strong> ${Number(pedido.distancia_km || 0).toLocaleString('es-PY')} km</div>
-<div>🧭 <strong>Distancia aprox. hasta el retiro:</strong> ${distanciaHastaRetiro === null ? 'Activá el GPS para calcularla' : `${distanciaHastaRetiro} km`}</div>
-<div>🛵 <strong>Tarifa del servicio:</strong> ${tarifaServicio ? `Gs. ${tarifaServicio.toLocaleString('es-PY')}` : 'No disponible'}</div>
-<div>💳 <strong>Forma de pago:</strong> ${formatearTipoPago(pedido.tipo_pago)}</div>
-<div>💰 <strong>Total a cobrar al cliente:</strong> Gs. ${Number(pedido.monto || 0).toLocaleString('es-PY')}</div>
-</div>
-<div class="repartidor-acciones">
-<button class="btn-gps" onclick="abrirNavegacion('${destinoNavegacion || ''}')">🧭 ${textoNavegacion}</button>
-${botonAccion}
-</div>
-</div>`;
+        <div class="pedido-card">
+          <div class="pedido-header">
+            <div class="pedido-id">Pedido #${pedido.id}</div>
+            <div class="estado ${pedido.estado}">${formatearEstado(pedido.estado)}</div>
+          </div>
+          <div style="font-size: 13px; color: #cbd5e1; line-height: 1.7;">
+            <div>📍 <strong>Retiro:</strong> ${pedido.origen_direccion || 'Sin dirección'}</div>
+            <div>📍 <strong>Entrega:</strong> ${pedido.destino_direccion || 'Sin dirección'}</div>
+            <div><strong>Servicio:</strong> ${pedido.tipo}</div>
+            <div>📏 <strong>Distancia del servicio:</strong> ${Number(pedido.distancia_km || 0).toLocaleString('es-PY')} km</div>
+            <div>🧭 <strong>Distancia aprox. hasta el retiro:</strong> ${distanciaHastaRetiro === null ? 'Activá el GPS para calcularla' : `${distanciaHastaRetiro} km`}</div>
+            <div>🛵 <strong>Tarifa del servicio:</strong> ${tarifaServicio ? `Gs. ${tarifaServicio.toLocaleString('es-PY')}` : 'No disponible'}</div>
+            <div>💳 <strong>Forma de pago:</strong> ${formatearTipoPago(pedido.tipo_pago)}</div>
+            <div>💰 <strong>Total a cobrar al cliente:</strong> Gs. ${Number(pedido.monto || 0).toLocaleString('es-PY')}</div>
+          </div>
+          <div class="repartidor-acciones">
+            <button class="btn-gps" onclick="abrirNavegacion('${destinoNavegacion || ''}')">🧭 ${textoNavegacion}</button>
+            ${botonAccion}
+          </div>
+        </div>`;
     }).join('');
   } catch (error) {
     console.error(error);
@@ -138,7 +139,8 @@ async function actualizarEstadoMiPedido(id, estado, tipoPago = null, destinoNave
   }[estado] || '¿Confirmás el cambio de estado?';
   if (!confirm(texto)) return;
   try {
-    const respuesta = await fetch(`${API_URL}/pedidos/${id}`, {
+    // ✅ CORREGIDO: Se agregó /api/
+    const respuesta = await fetch(`${API_URL}/api/pedidos/${id}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ estado, ...(tipoPago ? { tipo_pago: tipoPago } : {}) })
@@ -186,7 +188,8 @@ async function iniciarSeguimientoGpsRepartidor() {
     document.getElementById('estadoGpsRepartidor').textContent = 'GPS automático: buscando tu ubicación…';
     seguimientoGpsId = navigator.geolocation.watchPosition(async posicion => {
       try {
-        const respuesta = await fetch(`${API_URL}/repartidores/${repartidor.id}/gps`, {
+        // ✅ CORREGIDO: Se agregó /api/
+        const respuesta = await fetch(`${API_URL}/api/repartidores/${repartidor.id}/gps`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({

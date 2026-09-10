@@ -21,7 +21,8 @@ function inicializarMapa() {
 async function actualizarUbicacionRepartidor() {
   if (!mapa) return;
   try {
-    const res = await fetch(`${API_URL}/pedidos`);
+    // ✅ CORREGIDO: Se agregó /api/
+    const res = await fetch(`${API_URL}/api/pedidos`);
     const pedidos = await res.json();
     const misPedidos = pedidos.filter(p => p.cliente_id === usuarioId);
     if (misPedidos.length === 0) {
@@ -35,7 +36,8 @@ async function actualizarUbicacionRepartidor() {
       document.getElementById('mapaDetalles').innerHTML = 'Esperando asignación...';
       return;
     }
-    const resRepartidores = await fetch(`${API_URL}/repartidores`);
+    // ✅ CORREGIDO: Se agregó /api/
+    const resRepartidores = await fetch(`${API_URL}/api/repartidores`);
     const repartidores = await resRepartidores.json();
     const repartidor = repartidores.find(r => Number(r.id) === Number(pedidoAsignado.repartidor_id));
     if (!repartidor || !repartidor.gps_activo || repartidor.ubicacion_lat === null || repartidor.ubicacion_lng === null) {
@@ -53,10 +55,7 @@ async function actualizarUbicacionRepartidor() {
     marcadorRepartidor.bindPopup(`🛵 Repartidor #${pedidoAsignado.repartidor_id}<br>Pedido #${pedidoAsignado.id}`);
     marcadorRepartidor.openPopup();
     mapa.setView([baseLatitude, baseLongitude], 15);
-    document.getElementById('mapaDetalles').innerHTML = `
-🛵 Repartidor #${pedidoAsignado.repartidor_id} en camino<br>
-Pedido #${pedidoAsignado.id} - ${pedidoAsignado.estado}
-`;
+    document.getElementById('mapaDetalles').innerHTML = `🛵 Repartidor #${pedidoAsignado.repartidor_id} en camino<br>Pedido #${pedidoAsignado.id} - ${pedidoAsignado.estado}`;
   } catch (error) {
     console.error(error);
   }

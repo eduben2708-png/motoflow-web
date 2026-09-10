@@ -9,17 +9,18 @@ function abrirChat(pedidoId) {
 async function cargarMensajes() {
   if (!pedidoActivoChat) return;
   try {
-    const res = await fetch(`${API_URL}/pedidos/${pedidoActivoChat}/mensajes`);
+    // ✅ CORREGIDO: Se agregó /api/
+    const res = await fetch(`${API_URL}/api/pedidos/${pedidoActivoChat}/mensajes`);
     const msgs = await res.json();
     let html = '';
     msgs.forEach(msg => {
       const esCliente = msg.usuario_id === usuarioId;
       const claseMsg = esCliente ? 'mensaje-cliente' : 'mensaje-repartidor';
       html += `
-<div class="mensaje ${claseMsg}">
-<div>${msg.mensaje}</div>
-<div class="mensaje-hora">${msg.timestamp}</div>
-</div>`;
+        <div class="mensaje ${claseMsg}">
+          <div>${msg.mensaje}</div>
+          <div class="mensaje-hora">${msg.timestamp}</div>
+        </div>`;
     });
     document.getElementById('chatMensajes').innerHTML = html;
     document.getElementById('chatMensajes').scrollTop = document.getElementById('chatMensajes').scrollHeight;
@@ -34,7 +35,8 @@ async function enviarMensaje() {
   const mensaje = input.value.trim();
   if (!mensaje) return;
   try {
-    await fetch(`${API_URL}/pedidos/${pedidoActivoChat}/mensajes`, {
+    // ✅ CORREGIDO: Se agregó /api/
+    await fetch(`${API_URL}/api/pedidos/${pedidoActivoChat}/mensajes`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ usuario_id: usuarioId, mensaje })

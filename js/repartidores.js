@@ -2,7 +2,8 @@ let filtroRepartidor = 'todos';
 
 async function cargarRepartidores() {
   try {
-    const res = await fetch(`${API_URL}/repartidores`);
+    // ✅ CORREGIDO: Se agregó /api/
+    const res = await fetch(`${API_URL}/api/repartidores`);
     const data = await res.json();
     let filtrados = data;
     if (filtroRepartidor === 'activos') {
@@ -16,20 +17,20 @@ async function cargarRepartidores() {
     } else {
       filtrados.forEach(r => {
         html += `
-<div class="repartidor-card">
-<div class="repartidor-header">
-<div>Repartidor #${r.id}</div>
-${r.gps_activo ? '<div class="online">● Online</div>' : ''}
-</div>
-<div class="info-row">
-<div><div class="stat-label">Entregas</div><div class="stat-value">${r.total_entregas || 0}</div></div>
-<div><div class="stat-label">Rating</div><div class="stat-value">⭐ ${r.calificacion || 0}</div></div>
-</div>
-<div class="admin-fila"><span>Estado</span><strong>${r.estado_aprobacion}</strong></div>
-${r.estado_aprobacion === 'pendiente'
-? `<button class="btn-asignar" onclick="aprobarRepartidor(${r.id})" style="background:#4caf50;">Aprobar repartidor</button>`
-: `<button class="btn-asignar" onclick="actualizarGpsRepartidor(${r.id})" style="background:#7c3aed;">Actualizar GPS</button>`}
-</div>`;
+          <div class="repartidor-card">
+            <div class="repartidor-header">
+              <div>Repartidor #${r.id}</div>
+              ${r.gps_activo ? '<div class="online">● Online</div>' : ''}
+            </div>
+            <div class="info-row">
+              <div><div class="stat-label">Entregas</div><div class="stat-value">${r.total_entregas || 0}</div></div>
+              <div><div class="stat-label">Rating</div><div class="stat-value">⭐ ${r.calificacion || 0}</div></div>
+            </div>
+            <div class="admin-fila"><span>Estado</span><strong>${r.estado_aprobacion}</strong></div>
+            ${r.estado_aprobacion === 'pendiente'
+              ? `<button class="btn-asignar" onclick="aprobarRepartidor(${r.id})" style="background:#4caf50;">Aprobar repartidor</button>`
+              : `<button class="btn-asignar" onclick="actualizarGpsRepartidor(${r.id})" style="background:#7c3aed;">Actualizar GPS</button>`}
+          </div>`;
       });
     }
     document.getElementById('listaRepartidores').innerHTML = html;
@@ -53,7 +54,8 @@ function actualizarGpsRepartidor(repartidorId) {
   navigator.geolocation.getCurrentPosition(
     async posicion => {
       try {
-        const res = await fetch(`${API_URL}/repartidores/${repartidorId}/gps`, {
+        // ✅ CORREGIDO: Se agregó /api/
+        const res = await fetch(`${API_URL}/api/repartidores/${repartidorId}/gps`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -70,7 +72,7 @@ function actualizarGpsRepartidor(repartidorId) {
         alert('Error: ' + error.message);
       }
     },
-    () => alert('Debes permitir el acceso a la ubicación para activar el GPS.'),
+    () => alert('Debés permitir el acceso a la ubicación para activar el GPS.'),
     { enableHighAccuracy: true, timeout: 10000, maximumAge: 30000 }
   );
 }
@@ -85,18 +87,19 @@ async function registrarRepartidor() {
     modelo_moto: document.getElementById('repModeloMoto').value.trim()
   };
   if (!datos.nombre || !datos.telefono || !datos.ci || !datos.placa) {
-    alert('Completa nombre, teléfono, CI y placa');
+    alert('Completá nombre, teléfono, CI y placa');
     return;
   }
   try {
-    const res = await fetch(`${API_URL}/repartidores/registro`, {
+    // ✅ CORREGIDO: Se agregó /api/
+    const res = await fetch(`${API_URL}/api/repartidores/registro`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(datos)
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || 'No se pudo registrar el repartidor');
-    alert('Repartidor registrado. Ahora debes aprobarlo.');
+    alert('Repartidor registrado. Ahora debés aprobarlo.');
     ['repNombre', 'repTelefono', 'repCi', 'repPlaca', 'repMarcaMoto', 'repModeloMoto']
       .forEach(id => document.getElementById(id).value = '');
     cargarRepartidores();
@@ -107,7 +110,8 @@ async function registrarRepartidor() {
 
 async function aprobarRepartidor(id) {
   try {
-    const res = await fetch(`${API_URL}/repartidores/${id}/aprobar`, { method: 'PUT' });
+    // ✅ CORREGIDO: Se agregó /api/
+    const res = await fetch(`${API_URL}/api/repartidores/${id}/aprobar`, { method: 'PUT' });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || 'No se pudo aprobar el repartidor');
     alert('Repartidor aprobado y disponible para asignaciones.');

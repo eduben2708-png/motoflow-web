@@ -1,19 +1,20 @@
 async function cargarPanelAdmin() {
   try {
+    // ✅ CORREGIDO: Se agregó /api/
     const [resPedidos, resRepartidores] = await Promise.all([
-      fetch(`${API_URL}/pedidos`),
-      fetch(`${API_URL}/repartidores`)
+      fetch(`${API_URL}/api/pedidos`),
+      fetch(`${API_URL}/api/repartidores`)
     ]);
     const pedidos = await resPedidos.json();
     const repartidores = (await resRepartidores.json())
       .filter(repartidor => repartidor.estado_aprobacion === 'aprobado');
     const contar = estado => pedidos.filter(pedido => pedido.estado === estado).length;
     document.getElementById('adminEstadisticas').innerHTML = `
-<div class="admin-estadistica"><span class="stat-label">Pendientes</span><span class="numero">${contar('pendiente')}</span></div>
-<div class="admin-estadistica"><span class="stat-label">Asignados</span><span class="numero">${contar('asignado')}</span></div>
-<div class="admin-estadistica"><span class="stat-label">En camino</span><span class="numero">${contar('en_camino')}</span></div>
-<div class="admin-estadistica"><span class="stat-label">Entregados</span><span class="numero">${contar('entregado')}</span></div>
-`;
+      <div class="admin-estadistica"><span class="stat-label">Pendientes</span><span class="numero">${contar('pendiente')}</span></div>
+      <div class="admin-estadistica"><span class="stat-label">Asignados</span><span class="numero">${contar('asignado')}</span></div>
+      <div class="admin-estadistica"><span class="stat-label">En camino</span><span class="numero">${contar('en_camino')}</span></div>
+      <div class="admin-estadistica"><span class="stat-label">Entregados</span><span class="numero">${contar('entregado')}</span></div>
+    `;
     const pedidosOperativos = pedidos.filter(pedido =>
       ['pendiente', 'asignado', 'en_retiro', 'en_camino'].includes(pedido.estado)
     );
@@ -21,61 +22,58 @@ async function cargarPanelAdmin() {
       document.getElementById('listaAdminPedidos').innerHTML = '<div class="no-data">No hay pedidos pendientes de gestionar.</div>';
       return;
     }
-
     const repartidoresConCarga = repartidores.map(repartidor => {
       const activos = contarPedidosActivos(pedidos, repartidor.id);
       return { ...repartidor, activos };
     }).sort((a, b) => a.activos - b.activos);
-
     const opcionesRepartidor = repartidoresConCarga.map(repartidor => {
       let badge = '';
       let disabled = '';
       if (repartidor.activos >= MAX_PEDIDOS_POR_REPARTIDOR) {
-        badge = ` <span style="color:#f44336;">⛔ LLENO (${repartidor.activos})</span>`;
+        badge = `<span style="color:#f44336;">⛔ LLENO (${repartidor.activos})</span>`;
         disabled = 'disabled';
       } else if (repartidor.activos === 2) {
-        badge = ` <span style="color:#ff9800;">️ (${repartidor.activos}/3)</span>`;
+        badge = `<span style="color:#ff9800;">⚠️ (${repartidor.activos}/3)</span>`;
       } else if (repartidor.activos === 1) {
-        badge = ` <span style="color:#4caf50;">● (${repartidor.activos}/3)</span>`;
+        badge = `<span style="color:#4caf50;">● (${repartidor.activos}/3)</span>`;
       } else {
-        badge = ` <span style="color:#8899bb;">(0/3)</span>`;
+        badge = `<span style="color:#8899bb;">(0/3)</span>`;
       }
       return `<option value="${repartidor.id}" ${disabled}>${repartidor.nombre || 'Repartidor'} #${repartidor.id}${badge}</option>`;
     }).join('');
-
     document.getElementById('listaAdminPedidos').innerHTML = pedidosOperativos
       .sort((a, b) => b.id - a.id)
       .map(pedido => {
         const repartidorActual = pedido.repartidor_id || '';
         return `
-<div class="admin-pedido">
-<div class="pedido-header">
-<strong>Pedido #${pedido.id}</strong>
-<span class="estado ${pedido.estado}">${formatearEstado(pedido.estado)}</span>
-</div>
-<div class="admin-fila"><span>Servicio</span><strong>${pedido.tipo}</strong></div>
-<div class="admin-fila"><span>Distancia</span><strong>${pedido.distancia_km || 0} km</strong></div>
-<div class="admin-fila"><span>Total</span><strong>Gs. ${Number(pedido.monto || 0).toLocaleString('es-PY')}</strong></div>
-<div class="admin-fila" style="font-size: 11px; color: #8899bb;">
-<span>ℹ️ Los repartidores con "⛔ LLENO" ya tienen ${MAX_PEDIDOS_POR_REPARTIDOR} pedidos activos</span>
-</div>
-<div class="admin-control">
-<label>Repartidor</label>
-<select id="adminRepartidor-${pedido.id}">
-<option value="">Seleccionar repartidor</option>
-${opcionesRepartidor.replace(`value="${repartidorActual}"`, `value="${repartidorActual}" selected`)}
-</select>
-</div>
-<div class="admin-control">
-<label>Estado del pedido</label>
-<select id="adminEstado-${pedido.id}">${opcionesEstado(pedido.estado)}</select>
-</div>
-<div class="admin-acciones">
-<button onclick="asignarPedidoAdmin(${pedido.id})">Asignar</button>
-<button onclick="actualizarEstadoAdmin(${pedido.id})" style="background:#4caf50;">Guardar estado</button>
-</div>
-</div>
-`;
+          <div class="admin-pedido">
+            <div class="pedido-header">
+              <strong>Pedido #${pedido.id}</strong>
+              <span class="estado ${pedido.estado}">${formatearEstado(pedido.estado)}</span>
+            </div>
+            <div class="admin-fila"><span>Servicio</span><strong>${pedido.tipo}</strong></div>
+            <div class="admin-fila"><span>Distancia</span><strong>${pedido.distancia_km || 0} km</strong></div>
+            <div class="admin-fila"><span>Total</span><strong>Gs. ${Number(pedido.monto || 0).toLocaleString('es-PY')}</strong></div>
+            <div class="admin-fila" style="font-size: 11px; color: #8899bb;">
+              <span>ℹ️ Los repartidores con " LLENO" ya tienen ${MAX_PEDIDOS_POR_REPARTIDOR} pedidos activos</span>
+            </div>
+            <div class="admin-control">
+              <label>Repartidor</label>
+              <select id="adminRepartidor-${pedido.id}">
+                <option value="">Seleccionar repartidor</option>
+                ${opcionesRepartidor.replace(`value="${repartidorActual}"`, `value="${repartidorActual}" selected`)}
+              </select>
+            </div>
+            <div class="admin-control">
+              <label>Estado del pedido</label>
+              <select id="adminEstado-${pedido.id}">${opcionesEstado(pedido.estado)}</select>
+            </div>
+            <div class="admin-acciones">
+              <button onclick="asignarPedidoAdmin(${pedido.id})">Asignar</button>
+              <button onclick="actualizarEstadoAdmin(${pedido.id})" style="background:#4caf50;">Guardar estado</button>
+            </div>
+          </div>
+        `;
       }).join('');
   } catch (error) {
     document.getElementById('listaAdminPedidos').innerHTML = '<div class="no-data">No se pudo cargar el panel administrador.</div>';
@@ -87,7 +85,8 @@ async function guardarPedidoAdmin(id, estado, repartidorId) {
   try {
     const cuerpo = { estado };
     if (repartidorId) cuerpo.repartidor_id = Number(repartidorId);
-    const res = await fetch(`${API_URL}/pedidos/${id}`, {
+    // ✅ CORREGIDO: Se agregó /api/
+    const res = await fetch(`${API_URL}/api/pedidos/${id}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(cuerpo)
@@ -153,13 +152,14 @@ function verificarCercania(repartidor, pedidosActivos, nuevoPedidoLat, nuevoPedi
 async function asignarPedidoAdmin(id) {
   const repartidorId = document.getElementById(`adminRepartidor-${id}`).value;
   if (!repartidorId) {
-    alert('Selecciona un repartidor primero');
+    alert('Seleccioná un repartidor primero');
     return;
   }
   try {
+    // ✅ CORREGIDO: Se agregó /api/
     const [resPedidos, resRepartidores] = await Promise.all([
-      fetch(`${API_URL}/pedidos`),
-      fetch(`${API_URL}/repartidores`)
+      fetch(`${API_URL}/api/pedidos`),
+      fetch(`${API_URL}/api/repartidores`)
     ]);
     const pedidos = await resPedidos.json();
     const repartidores = await resRepartidores.json();
@@ -174,7 +174,7 @@ async function asignarPedidoAdmin(id) {
     );
     const cantidadActivos = pedidosActivos.length;
     if (cantidadActivos >= MAX_PEDIDOS_POR_REPARTIDOR) {
-      alert(`⛔ Este repartidor ya tiene ${MAX_PEDIDOS_POR_REPARTIDOR} pedidos activos.\n\nDebe completar al menos uno antes de recibir otro.`);
+      alert(` Este repartidor ya tiene ${MAX_PEDIDOS_POR_REPARTIDOR} pedidos activos.\n\nDebe completar al menos uno antes de recibir otro.`);
       return;
     }
     const nuevoPedido = pedidos.find(p => Number(p.id) === Number(id));
@@ -208,7 +208,7 @@ function actualizarEstadoAdmin(id) {
   const estado = document.getElementById(`adminEstado-${id}`).value;
   const repartidorId = document.getElementById(`adminRepartidor-${id}`).value;
   if ((estado === 'asignado' || estado === 'en_camino') && !repartidorId) {
-    alert('Selecciona un repartidor antes de asignar o iniciar el pedido');
+    alert('Seleccioná un repartidor antes de asignar o iniciar el pedido');
     return;
   }
   guardarPedidoAdmin(id, estado, repartidorId);
