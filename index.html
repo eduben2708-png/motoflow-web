@@ -9,12 +9,11 @@
 </head>
 <body>
   <div class="container">
-    <!-- LOGIN SCREEN -->
+    <!-- PANTALLA DE LOGIN -->
     <div id="loginScreen">
       <div class="logo">🛵</div>
       <h1>MotoCourier CDE</h1>
       
-      <!-- Paso 1: Ingresar teléfono -->
       <div id="paso1">
         <p>Ingresa tu número</p>
         <div class="input-group">
@@ -24,7 +23,6 @@
         <button onclick="enviarCodigo()">Enviar código</button>
       </div>
       
-      <!-- Paso 2: Verificar código -->
       <div id="paso2" class="hidden">
         <p>Verificá tu código</p>
         <input type="text" id="codigo" placeholder="123456" maxlength="6">
@@ -33,7 +31,7 @@
       </div>
     </div>
 
-    <!-- DASHBOARD SCREEN -->
+    <!-- PANTALLA DEL DASHBOARD -->
     <div id="dashboardScreen" class="hidden">
       <div class="header">
         <div class="logo">🛵</div>
@@ -44,7 +42,6 @@
         </div>
       </div>
 
-      <!-- NAVIGATION BUTTONS -->
       <div class="nav-buttons">
         <button id="navPedidos" class="nav-btn active" onclick="mostrarSeccion('pedidos')">Pedidos</button>
         <button id="navChat" class="nav-btn" onclick="mostrarSeccion('chat')">Chat</button>
@@ -56,15 +53,8 @@
         <button id="navHistorial" class="nav-btn" onclick="mostrarSeccion('historial')">Historial</button>
       </div>
 
-      <!-- CONTENT SECTIONS -->
       <div class="content">
-        <!-- SECCIÓN PEDIDOS -->
-        <div id="seccionPedidos">
-          <h3>Mis Pedidos</h3>
-          <div id="listaPedidos"></div>
-        </div>
-
-        <!-- SECCIÓN CHAT -->
+        <div id="seccionPedidos"><h3>Mis Pedidos</h3><div id="listaPedidos"></div></div>
         <div id="seccionChat" class="hidden">
           <h3>Chat del Pedido</h3>
           <div id="chatMensajes" class="chat-container"></div>
@@ -73,60 +63,43 @@
             <button onclick="enviarMensaje()">Enviar</button>
           </div>
         </div>
-
-        <!-- SECCIÓN MAPA -->
         <div id="seccionMapa" class="hidden">
           <h3>Mapa en Tiempo Real</h3>
           <div id="mapa" style="height: 400px;"></div>
           <div id="mapaDetalles" class="info-box"></div>
         </div>
-
-        <!-- SECCIÓN CREAR PEDIDO -->
         <div id="seccionCrear" class="hidden">
           <h3>Crear Nuevo Pedido</h3>
-          
           <div class="form-group">
             <label id="instruccionMapa">📍 Paso 1: Marcá el PUNTO DE RETIRO</label>
             <div id="mapaCrear" style="height: 300px;"></div>
           </div>
-
           <div id="puntoRetiro" class="hidden">
-            <div class="info-box">
-              ✅ Punto de RETIRO marcado
-              <input type="text" id="referenciaRetiro" placeholder="¿Dónde retiramos? (ej: Av. San Martín 123)">
-            </div>
+            <div class="info-box">✅ Punto de RETIRO marcado<input type="text" id="referenciaRetiro" placeholder="¿Dónde retiramos?"></div>
           </div>
-
           <div id="puntoEntrega" class="hidden">
-            <div class="info-box">
-              ✅ Punto de ENTREGA marcado
-              <input type="text" id="referenciaEntrega" placeholder="¿Dónde entregamos? (ej: Calle Palma 456)">
-            </div>
+            <div class="info-box">✅ Punto de ENTREGA marcado<input type="text" id="referenciaEntrega" placeholder="¿Dónde entregamos?"></div>
           </div>
-
           <div class="form-actions">
             <button class="btn-secondary" onclick="editarPunto('retiro')">Editar retiro</button>
             <button class="btn-secondary" onclick="editarPunto('entrega')">Editar entrega</button>
             <button class="btn-secondary" onclick="limpiarPuntos()">Limpiar</button>
           </div>
-
           <div class="form-group">
             <label>Tipo de Servicio</label>
             <select id="tipoServicio" onchange="actualizarFormularioServicio()">
               <option value="delivery">🚚 Delivery / Entrega</option>
               <option value="retiro">📦 Retiro / Recogida</option>
-              <option value="encargo"> Compra por Encargo</option>
+              <option value="encargo">🛒 Compra por Encargo</option>
             </select>
           </div>
-
           <div id="grupoMontoPedido" class="form-group hidden">
             <label>Monto de la compra (Gs.)</label>
             <input type="number" id="montoPedido" placeholder="50000" onchange="calcularTarifa()">
           </div>
-
           <div id="desgloseTarifa" class="hidden">
             <div class="tarifa-box">
-              <div> Distancia: <strong id="distanciaKm">0</strong> km</div>
+              <div>📍 Distancia: <strong id="distanciaKm">0</strong> km</div>
               <div>Tarifa base: <strong id="desgloseTarifaBase">0</strong></div>
               <div id="filaKmAdicionales" class="hidden">Kilómetros adicionales: <strong id="desgloseKmAdicionales">0</strong></div>
               <div>Tarifa MotoCourier: <strong id="desgloseTarifaMoto">0</strong></div>
@@ -135,61 +108,31 @@
               <div class="total">TOTAL A PAGAR: <strong id="desgloseTotal">0</strong> Gs.</div>
             </div>
           </div>
-
           <button onclick="crearPedidoConTarifa()" class="btn-primary">Confirmar Pedido</button>
         </div>
-
-        <!-- SECCIÓN ADMIN -->
         <div id="seccionAdmin" class="hidden">
           <h3>Panel administrador</h3>
           <p class="subtitle">Control de pedidos, asignaciones y estados.</p>
-          
           <div id="adminEstadisticas" class="stats-grid"></div>
           <div id="listaAdminPedidos"></div>
         </div>
-
-        <!-- SECCIÓN MI RUTA -->
         <div id="seccionMiRuta" class="hidden">
           <h3>Mi ruta de reparto</h3>
           <p class="subtitle">Acá verás únicamente los pedidos asignados a tu cuenta.</p>
-          
           <div id="estadoGpsRepartidor" class="info-box">Ubicación GPS: sin actualizar.</div>
           <button onclick="actualizarGpsMiRepartidor()" class="btn-primary">Activar GPS automático</button>
-          
           <div id="listaMiRuta"></div>
         </div>
-
-        <!-- SECCIÓN REPARTIDORES -->
         <div id="seccionRepartidores" class="hidden">
           <h3>Registrar repartidor</h3>
           <p class="subtitle">Quedará pendiente hasta que lo apruebes.</p>
-          
-          <div class="form-group">
-            <label>Nombre completo</label>
-            <input type="text" id="repNombre" placeholder="Juan Pérez">
-          </div>
-          <div class="form-group">
-            <label>Teléfono</label>
-            <input type="tel" id="repTelefono" placeholder="0981123456">
-          </div>
-          <div class="form-group">
-            <label>Cédula de Identidad</label>
-            <input type="text" id="repCi" placeholder="1234567">
-          </div>
-          <div class="form-group">
-            <label>Placa de la moto</label>
-            <input type="text" id="repPlaca" placeholder="ABC123">
-          </div>
-          <div class="form-group">
-            <label>Marca de la moto</label>
-            <input type="text" id="repMarcaMoto" placeholder="Honda">
-          </div>
-          <div class="form-group">
-            <label>Modelo de la moto</label>
-            <input type="text" id="repModeloMoto" placeholder="CB150">
-          </div>
+          <div class="form-group"><label>Nombre completo</label><input type="text" id="repNombre" placeholder="Juan Pérez"></div>
+          <div class="form-group"><label>Teléfono</label><input type="tel" id="repTelefono" placeholder="0981123456"></div>
+          <div class="form-group"><label>Cédula de Identidad</label><input type="text" id="repCi" placeholder="1234567"></div>
+          <div class="form-group"><label>Placa de la moto</label><input type="text" id="repPlaca" placeholder="ABC123"></div>
+          <div class="form-group"><label>Marca de la moto</label><input type="text" id="repMarcaMoto" placeholder="Honda"></div>
+          <div class="form-group"><label>Modelo de la moto</label><input type="text" id="repModeloMoto" placeholder="CB150"></div>
           <button onclick="registrarRepartidor()" class="btn-primary">Registrar repartidor</button>
-
           <h3 style="margin-top: 24px;">Lista de repartidores</h3>
           <div class="filtros">
             <button class="filtro-btn active" onclick="filtrarRepartidores('todos')">Todos</button>
@@ -198,20 +141,11 @@
           </div>
           <div id="listaRepartidores"></div>
         </div>
-
-        <!-- SECCIÓN HISTORIAL -->
         <div id="seccionHistorial" class="hidden">
           <h3>Historial de pedidos</h3>
-          
           <div class="filtros-historial">
-            <div class="form-group">
-              <label>Desde</label>
-              <input type="date" id="historialFechaDesde">
-            </div>
-            <div class="form-group">
-              <label>Hasta</label>
-              <input type="date" id="historialFechaHasta">
-            </div>
+            <div class="form-group"><label>Desde</label><input type="date" id="historialFechaDesde"></div>
+            <div class="form-group"><label>Hasta</label><input type="date" id="historialFechaHasta"></div>
             <div class="form-group">
               <label>Estado</label>
               <select id="historialEstado">
@@ -220,27 +154,18 @@
                 <option value="cancelado">Cancelado</option>
               </select>
             </div>
-            <div id="grupoHistorialCliente" class="form-group hidden">
-              <label>Cliente ID (opcional)</label>
-              <input type="number" id="historialClienteId" placeholder="123">
-            </div>
-            <div id="grupoHistorialRepartidor" class="form-group hidden">
-              <label>Repartidor ID (opcional)</label>
-              <input type="number" id="historialRepartidorId" placeholder="456">
-            </div>
+            <div id="grupoHistorialCliente" class="form-group hidden"><label>Cliente ID</label><input type="number" id="historialClienteId"></div>
+            <div id="grupoHistorialRepartidor" class="form-group hidden"><label>Repartidor ID</label><input type="number" id="historialRepartidorId"></div>
             <button onclick="cargarHistorial()" class="btn-primary">Filtrar</button>
           </div>
-          
           <div id="listaHistorial"></div>
         </div>
       </div>
-
-      <!-- NOTIFICACIONES -->
       <div id="notificaciones"></div>
     </div>
   </div>
 
-  <!-- SCRIPTS -->
+  <!-- SCRIPTS (El orden es importante) -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
   <script src="js/config.js"></script>
   <script src="js/utils.js"></script>

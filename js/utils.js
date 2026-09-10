@@ -30,6 +30,7 @@ function mostrarNotificacion(mensaje) {
   notif.className = 'notificacion';
   notif.textContent = mensaje;
   document.getElementById('notificaciones').appendChild(notif);
+  alert(mensaje);
   setTimeout(() => notif.remove(), 5000);
 }
 
@@ -46,7 +47,9 @@ function distanciaEntreCoordenadas(lat1, lng1, lat2, lng2) {
   const aRad = g => g * Math.PI / 180;
   const dLat = aRad(lat2 - lat1);
   const dLng = aRad(lng2 - lng1);
-  const a = Math.sin(dLat / 2) ** 2 + Math.cos(aRad(lat1)) * Math.cos(aRad(lat2)) * Math.sin(dLng / 2) ** 2;
+  const a = Math.sin(dLat / 2) ** 2 +
+    Math.cos(aRad(lat1)) * Math.cos(aRad(lat2)) *
+    Math.sin(dLng / 2) ** 2;
   return 6371 * (2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)));
 }
 
@@ -54,13 +57,17 @@ function calcularDistanciaHastaRetiroKm(latRepartidor, lngRepartidor, origen) {
   const [latRetiro, lngRetiro] = String(origen || '').split(',').map(valor => Number(valor.trim()));
   const latitudRepartidor = Number(latRepartidor);
   const longitudRepartidor = Number(lngRepartidor);
-  if (![latitudRepartidor, longitudRepartidor, latRetiro, lngRetiro].every(Number.isFinite)) return null;
-  
+  if (![latitudRepartidor, longitudRepartidor, latRetiro, lngRetiro].every(Number.isFinite)) {
+    return null;
+  }
   const aRad = grados => grados * Math.PI / 180;
   const diferenciaLat = aRad(latRetiro - latitudRepartidor);
   const diferenciaLng = aRad(lngRetiro - longitudRepartidor);
-  const a = Math.sin(diferenciaLat / 2) ** 2 + Math.cos(aRad(latitudRepartidor)) * Math.cos(aRad(latRetiro)) * Math.sin(diferenciaLng / 2) ** 2;
-  return (6371 * (2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)))).toFixed(1);
+  const a = Math.sin(diferenciaLat / 2) ** 2 +
+    Math.cos(aRad(latitudRepartidor)) * Math.cos(aRad(latRetiro)) *
+    Math.sin(diferenciaLng / 2) ** 2;
+  const distancia = 6371 * (2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)));
+  return distancia.toFixed(1);
 }
 
 function abrirNavegacion(coordenadas) {
@@ -76,7 +83,7 @@ function abrirNavegacion(coordenadas) {
 }
 
 // ==========================================
-// FUNCIÓN CRÍTICA AGREGADA: Mostrar Secciones
+// FUNCIÓN CRÍTICA: Mostrar Secciones
 // ==========================================
 function mostrarSeccion(nombreSeccion) {
   // 1. Ocultar todas las secciones
