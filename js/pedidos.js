@@ -46,8 +46,10 @@ async function crearPedidoConTarifa() {
   const tarifaMotoflow = obtenerTarifa(distanciaKm);
   const comisionEncargo = tipoServicio === 'encargo' ? Math.round(montoCompra * 0.02) : 0;
   const totalCobro = tarifaMotoflow + (tipoServicio === 'encargo' ? montoCompra + comisionEncargo : 0);
+  
   try {
-    const res = await fetch(`${API_URL}/pedidos`, {
+    // CORREGIDO: Agregado /api/
+    const res = await fetch(`${API_URL}/api/pedidos`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -71,9 +73,9 @@ async function crearPedidoConTarifa() {
     }
     if (data.id) {
       const mensajeAsignacion = data.repartidor_id
-        ? ` Repartidor #${data.repartidor_id} asignado automáticamente.`
-        : ' Quedó pendiente porque no hay repartidores con GPS activo.';
-      alert(`Pedido creado. Total a pagar: ${totalCobro.toLocaleString('es-PY')} Gs.${mensajeAsignacion}`);
+        ? `Repartidor #${data.repartidor_id} asignado automáticamente.`
+        : 'Quedó pendiente porque no hay repartidores con GPS activo.';
+      alert(`Pedido creado. Total a pagar: ${totalCobro.toLocaleString('es-PY')} Gs. ${mensajeAsignacion}`);
       puntoRetiro = null;
       puntoEntrega = null;
       document.getElementById('montoPedido').value = '';
@@ -94,7 +96,8 @@ async function crearPedidoConTarifa() {
 
 async function cargarPedidos() {
   try {
-    const res = await fetch(`${API_URL}/pedidos`);
+    // CORREGIDO: Agregado /api/
+    const res = await fetch(`${API_URL}/api/pedidos`);
     const data = await res.json();
     const misPedidos = data.filter(p => p.cliente_id === usuarioId);
     let html = '';
@@ -103,17 +106,17 @@ async function cargarPedidos() {
     } else {
       misPedidos.forEach(p => {
         html += `
-<div class="pedido-card">
-<div class="pedido-header">
-<div class="pedido-id">Pedido #${p.id}</div>
-<div class="estado ${p.estado}">${p.estado}</div>
-</div>
-<div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
-<div style="color: #4caf50; font-weight: bold;">Total: ${p.monto.toLocaleString()} Gs.</div>
-<div style="color: #2563eb; font-size: 12px;">${p.tipo}</div>
-</div>
-${p.repartidor_id ? `<button onclick="abrirChat(${p.id})" style="width: 100%; padding: 8px; background: #9c27b0; border: none; border-radius: 6px; color: #fff; cursor: pointer;">💬 Chat</button>` : ''}
-</div>`;
+          <div class="pedido-card">
+            <div class="pedido-header">
+              <div class="pedido-id">Pedido #${p.id}</div>
+              <div class="estado ${p.estado}">${p.estado}</div>
+            </div>
+            <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+              <div style="color: #4caf50; font-weight: bold;">Total: ${p.monto.toLocaleString()} Gs.</div>
+              <div style="color: #2563eb; font-size: 12px;">${p.tipo}</div>
+            </div>
+            ${p.repartidor_id ? `<button onclick="abrirChat(${p.id})" style="width: 100%; padding: 8px; background: #9c27b0; border: none; border-radius: 6px; color: #fff; cursor: pointer;">💬 Chat</button>` : ''}
+          </div>`;
       });
     }
     document.getElementById('listaPedidos').innerHTML = html;
@@ -129,7 +132,7 @@ function actualizarInstruccionMapa() {
   } else if (modoEdicionPunto === 'entrega') {
     instruccion.textContent = 'Haz clic en el mapa para elegir el nuevo punto de ENTREGA.';
   } else if (!puntoRetiro) {
-    instruccion.textContent = '📍 Paso 1: Haz clic en el mapa para marcar el PUNTO DE RETIRO';
+    instruccion.textContent = ' Paso 1: Haz clic en el mapa para marcar el PUNTO DE RETIRO';
   } else if (!puntoEntrega) {
     instruccion.textContent = '📍 Paso 2: Haz clic en el mapa para marcar el PUNTO DE ENTREGA';
   } else {
@@ -215,7 +218,8 @@ function iniciarNotificaciones() {
   setInterval(async () => {
     if (usuarioId) {
       try {
-        const res = await fetch(`${API_URL}/pedidos`);
+        // CORREGIDO: Agregado /api/
+        const res = await fetch(`${API_URL}/api/pedidos`);
         const pedidos = await res.json();
         const misPedidos = pedidos.filter(p => p.cliente_id === usuarioId);
         misPedidos.forEach(p => {
