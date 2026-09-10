@@ -1,195 +1,258 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>🛵 MotoCourier CDE</title>
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" />
-<link rel="stylesheet" href="/css/estilos.css">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MotoCourier CDE</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+  <link rel="stylesheet" href="css/estilos.css">
 </head>
 <body>
-<div class="container">
-<!-- LOGIN SCREEN -->
-<div id="loginScreen" class="login-screen">
-<div class="logo">🛵</div>
-<div class="title">MotoCourier CDE</div>
-<div class="card">
-<div id="paso1">
-<div class="form-group">
-<label class="label">Ingresa tu número</label>
-<div style="display: flex;">
-<span style="padding: 12px; background: #0f1729; border-radius: 8px 0 0 8px; border: 1px solid #444;">🇵🇾 +595</span>
-<input id="telefono" type="tel" inputmode="numeric" placeholder="Ej.: 984768500" maxlength="9">
-</div>
-</div>
-<button onclick="enviarCodigo()">Enviar código</button>
-</div>
-<div id="paso2" class="hidden">
-<div class="form-group">
-<label class="label">Verificá tu código</label>
-<input id="codigo" type="text" placeholder="123456" maxlength="6">
-</div>
-<button onclick="verificarCodigo()">Verificar</button>
-<button onclick="paso1()" style="background: #666;">← Cambiar número</button>
-</div>
-</div>
-</div>
+  <div class="container">
+    <!-- LOGIN SCREEN -->
+    <div id="loginScreen">
+      <div class="logo">🛵</div>
+      <h1>MotoCourier CDE</h1>
+      
+      <!-- Paso 1: Ingresar teléfono -->
+      <div id="paso1">
+        <p>Ingresa tu número</p>
+        <div class="input-group">
+          <span class="prefix">🇵🇾 +595</span>
+          <input type="tel" id="telefono" placeholder="981123456" maxlength="9">
+        </div>
+        <button onclick="enviarCodigo()">Enviar código</button>
+      </div>
+      
+      <!-- Paso 2: Verificar código -->
+      <div id="paso2" class="hidden">
+        <p>Verificá tu código</p>
+        <input type="text" id="codigo" placeholder="123456" maxlength="6">
+        <button onclick="verificarCodigo()">Verificar</button>
+        <button class="btn-secondary" onclick="paso1()">← Cambiar número</button>
+      </div>
+    </div>
 
-<!-- DASHBOARD -->
-<div id="dashboardScreen" class="dashboard hidden">
-<div class="header">
-<div class="header-info">
-<h2>MotoCourier CDE</h2>
-<p id="usuarioTel">+595 ...</p>
-</div>
-<button class="btn-logout" onclick="logout()">Salir</button>
-</div>
-<div class="nav-buttons">
-<button id="navPedidos" class="nav-btn active" onclick="mostrarSeccion('pedidos')">Pedidos</button>
-<button id="navChat" class="nav-btn" onclick="mostrarSeccion('chat')">Chat</button>
-<button id="navMapa" class="nav-btn" onclick="mostrarSeccion('mapa')">Mapa</button>
-<button id="navCrear" class="nav-btn" onclick="mostrarSeccion('crear')">+ Nuevo</button>
-<button id="navRepartidores" class="nav-btn" onclick="mostrarSeccion('repartidores')">Repartidores</button>
-<button id="navAdmin" class="nav-btn" onclick="mostrarSeccion('admin')">Administrar</button>
-<button id="navMiRuta" class="nav-btn hidden" onclick="mostrarSeccion('miRuta')">Mi ruta</button>
-<button id="navHistorial" class="nav-btn" onclick="mostrarSeccion('historial')">Historial</button>
-</div>
-<div class="content">
-<div id="notificaciones"></div>
-<div id="seccionChat" class="hidden">
-<div class="chat-container">
-<div class="chat-mensajes" id="chatMensajes"></div>
-<div class="chat-input">
-<input id="inputMensaje" type="text" placeholder="Escribe un mensaje...">
-<button onclick="enviarMensaje()">Enviar</button>
-</div>
-</div>
-</div>
-<div id="seccionMapa" class="hidden">
-<div class="mapa-info"> Ubicación en tiempo real del repartidor</div>
-<div id="mapa"></div>
-<div id="mapaDetalles" class="mapa-info"></div>
-</div>
-<div id="seccionPedidos"><div id="listaPedidos"></div></div>
-<div id="seccionCrear" class="hidden">
-<div class="card">
-<div class="instruccion" id="instruccionMapa">📍 Paso 1: Marcá el PUNTO DE RETIRO</div>
-<div id="mapaCrear"></div>
-<div id="puntoRetiro" class="punto-marcado hidden">✅ Punto de RETIRO marcado</div>
-<div class="form-group" style="margin-top: 12px;">
-<label class="label" for="referenciaRetiro">¿Dónde retiramos?</label>
-<input id="referenciaRetiro" type="text" maxlength="255" placeholder="Ej.: Tienda de Candy, Av. San Blas">
-</div>
-<div class="instruccion" style="margin-top: 16px;"> Paso 2: Marcá el PUNTO DE ENTREGA</div>
-<div id="puntoEntrega" class="punto-marcado hidden">✅ Punto de ENTREGA marcado</div>
-<div class="form-group" style="margin-top: 12px;">
-<label class="label" for="referenciaEntrega">¿Dónde entregamos?</label>
-<input id="referenciaEntrega" type="text" maxlength="255" placeholder="Ej.: Casa de Juan, Barrio San José">
-</div>
-<div class="acciones-puntos">
-<button type="button" class="btn-editar-punto" onclick="editarPunto('retiro')">Editar retiro</button>
-<button type="button" class="btn-editar-punto" onclick="editarPunto('entrega')">Editar entrega</button>
-<button type="button" class="btn-limpiar-puntos" onclick="limpiarPuntos()">Limpiar</button>
-</div>
-<div class="form-group" style="margin-top: 16px;">
-<label class="label">Tipo de Servicio</label>
-<select id="tipoServicio" onchange="actualizarFormularioServicio()">
-<option value="delivery">🚚 Delivery / Entrega</option>
-<option value="retiro">📦 Retiro / Recogida</option>
-<option value="encargo">🛒 Compra por Encargo</option>
-</select>
-</div>
-<div class="form-group hidden" id="grupoMontoPedido">
-<label class="label">Monto de la compra (Gs.)</label>
-<input id="montoPedido" type="number" min="0" placeholder="0" onchange="calcularTarifa()">
-</div>
-<div class="desglose-box hidden" id="desgloseTarifa">
-<div class="desglose-row"><span>📍 Distancia:</span><span><span id="distanciaKm">0</span> km</span></div>
-<div style="border-top: 1px solid #444; padding-top: 12px; margin-top: 12px;">
-<div class="desglose-row"><span>Tarifa base:</span><span id="desgloseTarifaBase" style="color: #fff;">0</span></div>
-<div class="desglose-row hidden" id="filaKmAdicionales"><span>Kilómetros adicionales:</span><span id="desgloseKmAdicionales" style="color: #fbbf24;">0</span></div>
-<div class="desglose-row"><span>Tarifa MotoCourier:</span><span id="desgloseTarifaMoto" style="color: #4caf50;">0</span></div>
-<div class="desglose-row hidden" id="filaMontoCompra"><span>Monto de la compra:</span><span id="desgloseMonto" style="color: #fff;">0</span></div>
-<div class="desglose-row hidden" id="filaComision"><span>Comisión por encargo (2%):</span><span id="desgloseComision" style="color: #fbbf24;">0</span></div>
-<div class="desglose-total">TOTAL A PAGAR: <span id="desgloseTotal">0</span> Gs.</div>
-</div>
-</div>
-<button onclick="crearPedidoConTarifa()">Confirmar Pedido</button>
-</div>
-</div>
-<div id="seccionAdmin" class="hidden">
-<h3 class="admin-titulo">Panel administrador</h3>
-<p class="admin-subtitulo">Control de pedidos, asignaciones y estados.</p>
-<div class="admin-estadisticas" id="adminEstadisticas"></div>
-<div id="listaAdminPedidos"></div>
-</div>
-<div id="seccionMiRuta" class="hidden">
-<div class="repartidor-panel">
-<h3>Mi ruta de reparto</h3>
-<p>Acá verás únicamente los pedidos asignados a tu cuenta.</p>
-<div id="estadoGpsRepartidor" class="gps-estado">Ubicación GPS: sin actualizar.</div>
-<button class="btn-gps" onclick="actualizarGpsMiRepartidor()">Activar GPS automático</button>
-</div>
-<div id="listaMiRuta"></div>
-</div>
-<div id="seccionRepartidores" class="hidden">
-<div class="registro-repartidor">
-<h3>Registrar repartidor</h3>
-<p>Quedará pendiente hasta que lo apruebes.</p>
-<div class="registro-repartidor-grid">
-<div class="form-group"><input id="repNombre" placeholder="Nombre completo"></div>
-<div class="form-group"><input id="repTelefono" type="tel" inputmode="numeric" placeholder="Ej.: 984768500" maxlength="9"></div>
-<div class="form-group"><input id="repCi" placeholder="CI"></div>
-<div class="form-group"><input id="repPlaca" placeholder="Placa de moto"></div>
-<div class="form-group"><input id="repMarcaMoto" placeholder="Marca de moto"></div>
-<div class="form-group"><input id="repModeloMoto" placeholder="Modelo de moto"></div>
-</div>
-<button onclick="registrarRepartidor()">Registrar repartidor</button>
-</div>
-<div class="filtros">
-<button class="filtro-btn active" onclick="filtrarRepartidores('todos')">Todos</button>
-<button class="filtro-btn" onclick="filtrarRepartidores('activos')">Activos</button>
-<button class="filtro-btn" onclick="filtrarRepartidores('aprobados')">Aprobados</button>
-</div>
-<div id="listaRepartidores"></div>
-</div>
-<div id="seccionHistorial" class="hidden">
-<div class="card" style="margin-bottom: 16px;">
-<div class="form-group"><label class="label">Desde</label><input type="date" id="historialFechaDesde"></div>
-<div class="form-group"><label class="label">Hasta</label><input type="date" id="historialFechaHasta"></div>
-<div class="form-group">
-<label class="label">Estado</label>
-<select id="historialEstado">
-<option value="">Todos (entregado + cancelado)</option>
-<option value="entregado">Entregado</option>
-<option value="cancelado">Cancelado</option>
-</select>
-</div>
-<div class="form-group" id="grupoHistorialCliente"><label class="label">Cliente ID (opcional)</label><input type="number" id="historialClienteId" placeholder="Ej: 8"></div>
-<div class="form-group" id="grupoHistorialRepartidor"><label class="label">Repartidor ID (opcional)</label><input type="number" id="historialRepartidorId" placeholder="Ej: 2"></div>
-<button onclick="cargarHistorial()">Filtrar</button>
-</div>
-<div id="listaHistorial"></div>
-</div>
-</div>
-</div>
-</div>
+    <!-- DASHBOARD SCREEN -->
+    <div id="dashboardScreen" class="hidden">
+      <div class="header">
+        <div class="logo">🛵</div>
+        <h2>MotoCourier CDE</h2>
+        <div class="user-info">
+          <span id="usuarioTel">+595 ...</span>
+          <button onclick="logout()" class="btn-logout">Salir</button>
+        </div>
+      </div>
 
-<!-- ============================================================ -->
-<!-- CARGA DE SCRIPTS                                             -->
-<!-- ============================================================ -->
-<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
-<script src="/js/config.js"></script>
-<script src="/js/utils.js"></script>
-<script src="/js/tarifas.js"></script>
-<script src="/js/auth.js"></script>
-<script src="/js/pedidos.js"></script>
-<script src="/js/chat.js"></script>
-<script src="/js/mapa.js"></script>
-<script src="/js/admin.js"></script>
-<script src="/js/repartidores.js"></script>
-<script src="/js/mi-ruta.js"></script>
-<script src="/js/historial.js"></script>
-<script src="/js/liquidaciones-frontend.js"></script>
+      <!-- NAVIGATION BUTTONS -->
+      <div class="nav-buttons">
+        <button id="navPedidos" class="nav-btn active" onclick="mostrarSeccion('pedidos')">Pedidos</button>
+        <button id="navChat" class="nav-btn" onclick="mostrarSeccion('chat')">Chat</button>
+        <button id="navMapa" class="nav-btn" onclick="mostrarSeccion('mapa')">Mapa</button>
+        <button id="navCrear" class="nav-btn" onclick="mostrarSeccion('crear')">+ Nuevo</button>
+        <button id="navRepartidores" class="nav-btn hidden" onclick="mostrarSeccion('repartidores')">Repartidores</button>
+        <button id="navAdmin" class="nav-btn hidden" onclick="mostrarSeccion('admin')">Administrar</button>
+        <button id="navMiRuta" class="nav-btn hidden" onclick="mostrarSeccion('miRuta')">Mi ruta</button>
+        <button id="navHistorial" class="nav-btn" onclick="mostrarSeccion('historial')">Historial</button>
+      </div>
+
+      <!-- CONTENT SECTIONS -->
+      <div class="content">
+        <!-- SECCIÓN PEDIDOS -->
+        <div id="seccionPedidos">
+          <h3>Mis Pedidos</h3>
+          <div id="listaPedidos"></div>
+        </div>
+
+        <!-- SECCIÓN CHAT -->
+        <div id="seccionChat" class="hidden">
+          <h3>Chat del Pedido</h3>
+          <div id="chatMensajes" class="chat-container"></div>
+          <div class="chat-input">
+            <input type="text" id="inputMensaje" placeholder="Escribí un mensaje...">
+            <button onclick="enviarMensaje()">Enviar</button>
+          </div>
+        </div>
+
+        <!-- SECCIÓN MAPA -->
+        <div id="seccionMapa" class="hidden">
+          <h3>Mapa en Tiempo Real</h3>
+          <div id="mapa" style="height: 400px;"></div>
+          <div id="mapaDetalles" class="info-box"></div>
+        </div>
+
+        <!-- SECCIÓN CREAR PEDIDO -->
+        <div id="seccionCrear" class="hidden">
+          <h3>Crear Nuevo Pedido</h3>
+          
+          <div class="form-group">
+            <label id="instruccionMapa">📍 Paso 1: Marcá el PUNTO DE RETIRO</label>
+            <div id="mapaCrear" style="height: 300px;"></div>
+          </div>
+
+          <div id="puntoRetiro" class="hidden">
+            <div class="info-box">
+              ✅ Punto de RETIRO marcado
+              <input type="text" id="referenciaRetiro" placeholder="¿Dónde retiramos? (ej: Av. San Martín 123)">
+            </div>
+          </div>
+
+          <div id="puntoEntrega" class="hidden">
+            <div class="info-box">
+              ✅ Punto de ENTREGA marcado
+              <input type="text" id="referenciaEntrega" placeholder="¿Dónde entregamos? (ej: Calle Palma 456)">
+            </div>
+          </div>
+
+          <div class="form-actions">
+            <button class="btn-secondary" onclick="editarPunto('retiro')">Editar retiro</button>
+            <button class="btn-secondary" onclick="editarPunto('entrega')">Editar entrega</button>
+            <button class="btn-secondary" onclick="limpiarPuntos()">Limpiar</button>
+          </div>
+
+          <div class="form-group">
+            <label>Tipo de Servicio</label>
+            <select id="tipoServicio" onchange="actualizarFormularioServicio()">
+              <option value="delivery">🚚 Delivery / Entrega</option>
+              <option value="retiro">📦 Retiro / Recogida</option>
+              <option value="encargo">🛒 Compra por Encargo</option>
+            </select>
+          </div>
+
+          <div id="grupoMontoPedido" class="form-group hidden">
+            <label>Monto de la compra (Gs.)</label>
+            <input type="number" id="montoPedido" placeholder="50000" onchange="calcularTarifa()">
+          </div>
+
+          <div id="desgloseTarifa" class="hidden">
+            <div class="tarifa-box">
+              <div> Distancia: <strong id="distanciaKm">0</strong> km</div>
+              <div>Tarifa base: <strong id="desgloseTarifaBase">0</strong></div>
+              <div id="filaKmAdicionales" class="hidden">Kilómetros adicionales: <strong id="desgloseKmAdicionales">0</strong></div>
+              <div>Tarifa MotoCourier: <strong id="desgloseTarifaMoto">0</strong></div>
+              <div id="filaMontoCompra" class="hidden">Monto de la compra: <strong id="desgloseMonto">0</strong></div>
+              <div id="filaComision" class="hidden">Comisión por encargo (2%): <strong id="desgloseComision">0</strong></div>
+              <div class="total">TOTAL A PAGAR: <strong id="desgloseTotal">0</strong> Gs.</div>
+            </div>
+          </div>
+
+          <button onclick="crearPedidoConTarifa()" class="btn-primary">Confirmar Pedido</button>
+        </div>
+
+        <!-- SECCIÓN ADMIN -->
+        <div id="seccionAdmin" class="hidden">
+          <h3>Panel administrador</h3>
+          <p class="subtitle">Control de pedidos, asignaciones y estados.</p>
+          
+          <div id="adminEstadisticas" class="stats-grid"></div>
+          <div id="listaAdminPedidos"></div>
+        </div>
+
+        <!-- SECCIÓN MI RUTA -->
+        <div id="seccionMiRuta" class="hidden">
+          <h3>Mi ruta de reparto</h3>
+          <p class="subtitle">Acá verás únicamente los pedidos asignados a tu cuenta.</p>
+          
+          <div id="estadoGpsRepartidor" class="info-box">Ubicación GPS: sin actualizar.</div>
+          <button onclick="actualizarGpsMiRepartidor()" class="btn-primary">Activar GPS automático</button>
+          
+          <div id="listaMiRuta"></div>
+        </div>
+
+        <!-- SECCIÓN REPARTIDORES -->
+        <div id="seccionRepartidores" class="hidden">
+          <h3>Registrar repartidor</h3>
+          <p class="subtitle">Quedará pendiente hasta que lo apruebes.</p>
+          
+          <div class="form-group">
+            <label>Nombre completo</label>
+            <input type="text" id="repNombre" placeholder="Juan Pérez">
+          </div>
+          <div class="form-group">
+            <label>Teléfono</label>
+            <input type="tel" id="repTelefono" placeholder="0981123456">
+          </div>
+          <div class="form-group">
+            <label>Cédula de Identidad</label>
+            <input type="text" id="repCi" placeholder="1234567">
+          </div>
+          <div class="form-group">
+            <label>Placa de la moto</label>
+            <input type="text" id="repPlaca" placeholder="ABC123">
+          </div>
+          <div class="form-group">
+            <label>Marca de la moto</label>
+            <input type="text" id="repMarcaMoto" placeholder="Honda">
+          </div>
+          <div class="form-group">
+            <label>Modelo de la moto</label>
+            <input type="text" id="repModeloMoto" placeholder="CB150">
+          </div>
+          <button onclick="registrarRepartidor()" class="btn-primary">Registrar repartidor</button>
+
+          <h3 style="margin-top: 24px;">Lista de repartidores</h3>
+          <div class="filtros">
+            <button class="filtro-btn active" onclick="filtrarRepartidores('todos')">Todos</button>
+            <button class="filtro-btn" onclick="filtrarRepartidores('activos')">Activos</button>
+            <button class="filtro-btn" onclick="filtrarRepartidores('aprobados')">Aprobados</button>
+          </div>
+          <div id="listaRepartidores"></div>
+        </div>
+
+        <!-- SECCIÓN HISTORIAL -->
+        <div id="seccionHistorial" class="hidden">
+          <h3>Historial de pedidos</h3>
+          
+          <div class="filtros-historial">
+            <div class="form-group">
+              <label>Desde</label>
+              <input type="date" id="historialFechaDesde">
+            </div>
+            <div class="form-group">
+              <label>Hasta</label>
+              <input type="date" id="historialFechaHasta">
+            </div>
+            <div class="form-group">
+              <label>Estado</label>
+              <select id="historialEstado">
+                <option value="">Todos (entregado + cancelado)</option>
+                <option value="entregado">Entregado</option>
+                <option value="cancelado">Cancelado</option>
+              </select>
+            </div>
+            <div id="grupoHistorialCliente" class="form-group hidden">
+              <label>Cliente ID (opcional)</label>
+              <input type="number" id="historialClienteId" placeholder="123">
+            </div>
+            <div id="grupoHistorialRepartidor" class="form-group hidden">
+              <label>Repartidor ID (opcional)</label>
+              <input type="number" id="historialRepartidorId" placeholder="456">
+            </div>
+            <button onclick="cargarHistorial()" class="btn-primary">Filtrar</button>
+          </div>
+          
+          <div id="listaHistorial"></div>
+        </div>
+      </div>
+
+      <!-- NOTIFICACIONES -->
+      <div id="notificaciones"></div>
+    </div>
+  </div>
+
+  <!-- SCRIPTS -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+  <script src="js/config.js"></script>
+  <script src="js/utils.js"></script>
+  <script src="js/tarifas.js"></script>
+  <script src="js/auth.js"></script>
+  <script src="js/pedidos.js"></script>
+  <script src="js/chat.js"></script>
+  <script src="js/mapa.js"></script>
+  <script src="js/admin.js"></script>
+  <script src="js/repartidores.js"></script>
+  <script src="js/mi-ruta.js"></script>
+  <script src="js/historial.js"></script>
+  <script src="js/liquidaciones-frontend.js"></script>
 </body>
 </html>
