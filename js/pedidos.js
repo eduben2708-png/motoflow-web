@@ -1,4 +1,3 @@
-// Variables del mapa de crear pedido
 let mapaCrear = null;
 let puntoRetiro = null;
 let puntoEntrega = null;
@@ -48,7 +47,6 @@ async function crearPedidoConTarifa() {
   const totalCobro = tarifaMotoflow + (tipoServicio === 'encargo' ? montoCompra + comisionEncargo : 0);
   
   try {
-    // ✅ CORREGIDO: Se agregó /api/
     const res = await fetch(`${API_URL}/api/pedidos`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -98,7 +96,6 @@ async function crearPedidoConTarifa() {
 
 async function cargarPedidos() {
   try {
-    // ✅ CORREGIDO: Se agregó /api/
     const res = await fetch(`${API_URL}/api/pedidos`);
     const data = await res.json();
     const misPedidos = data.filter(p => p.cliente_id === usuarioId);
@@ -220,7 +217,6 @@ function iniciarNotificaciones() {
   setInterval(async () => {
     if (usuarioId) {
       try {
-        // ✅ CORREGIDO: Se agregó /api/
         const res = await fetch(`${API_URL}/api/pedidos`);
         const pedidos = await res.json();
         const misPedidos = pedidos.filter(p => p.cliente_id === usuarioId);

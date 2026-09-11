@@ -2,7 +2,6 @@ let filtroRepartidor = 'todos';
 
 async function cargarRepartidores() {
   try {
-    // ✅ CORREGIDO: Se agregó /api/
     const res = await fetch(`${API_URL}/api/repartidores`);
     const data = await res.json();
     let filtrados = data;
@@ -54,7 +53,6 @@ function actualizarGpsRepartidor(repartidorId) {
   navigator.geolocation.getCurrentPosition(
     async posicion => {
       try {
-        // ✅ CORREGIDO: Se agregó /api/
         const res = await fetch(`${API_URL}/api/repartidores/${repartidorId}/gps`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
@@ -91,7 +89,6 @@ async function registrarRepartidor() {
     return;
   }
   try {
-    // ✅ CORREGIDO: Se agregó /api/
     const res = await fetch(`${API_URL}/api/repartidores/registro`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -110,7 +107,6 @@ async function registrarRepartidor() {
 
 async function aprobarRepartidor(id) {
   try {
-    // ✅ CORREGIDO: Se agregó /api/
     const res = await fetch(`${API_URL}/api/repartidores/${id}/aprobar`, { method: 'PUT' });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || 'No se pudo aprobar el repartidor');

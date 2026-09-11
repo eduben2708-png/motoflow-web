@@ -13,7 +13,7 @@ function inicializarMapa() {
   }).addTo(mapa);
   L.marker([CIUDAD_DEL_ESTE.lat, CIUDAD_DEL_ESTE.lng], {
     title: 'Centro CDE'
-  }).addTo(mapa).bindPopup('📍 Centro de Ciudad del Este');
+  }).addTo(mapa).bindPopup(' Centro de Ciudad del Este');
   actualizarUbicacionRepartidor();
   setInterval(actualizarUbicacionRepartidor, 10000);
 }
@@ -21,7 +21,6 @@ function inicializarMapa() {
 async function actualizarUbicacionRepartidor() {
   if (!mapa) return;
   try {
-    // ✅ CORREGIDO: Se agregó /api/
     const res = await fetch(`${API_URL}/api/pedidos`);
     const pedidos = await res.json();
     const misPedidos = pedidos.filter(p => p.cliente_id === usuarioId);
@@ -36,7 +35,6 @@ async function actualizarUbicacionRepartidor() {
       document.getElementById('mapaDetalles').innerHTML = 'Esperando asignación...';
       return;
     }
-    // ✅ CORREGIDO: Se agregó /api/
     const resRepartidores = await fetch(`${API_URL}/api/repartidores`);
     const repartidores = await resRepartidores.json();
     const repartidor = repartidores.find(r => Number(r.id) === Number(pedidoAsignado.repartidor_id));

@@ -28,7 +28,6 @@ async function cargarHistorial() {
       params.append('cliente_id', usuarioId);
     }
     
-    // ✅ CORREGIDO: Se agregó /api/
     const respuesta = await fetch(`${API_URL}/api/pedidos/historial?${params.toString()}`);
     if (!respuesta.ok) throw new Error('No se pudo cargar el historial');
     const pedidos = await respuesta.json();

@@ -9,7 +9,6 @@ function abrirChat(pedidoId) {
 async function cargarMensajes() {
   if (!pedidoActivoChat) return;
   try {
-    // ✅ CORREGIDO: Se agregó /api/
     const res = await fetch(`${API_URL}/api/pedidos/${pedidoActivoChat}/mensajes`);
     const msgs = await res.json();
     let html = '';
@@ -35,7 +34,6 @@ async function enviarMensaje() {
   const mensaje = input.value.trim();
   if (!mensaje) return;
   try {
-    // ✅ CORREGIDO: Se agregó /api/
     await fetch(`${API_URL}/api/pedidos/${pedidoActivoChat}/mensajes`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },

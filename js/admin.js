@@ -1,6 +1,5 @@
 async function cargarPanelAdmin() {
   try {
-    // ✅ CORREGIDO: Se agregó /api/
     const [resPedidos, resRepartidores] = await Promise.all([
       fetch(`${API_URL}/api/pedidos`),
       fetch(`${API_URL}/api/repartidores`)
@@ -55,7 +54,7 @@ async function cargarPanelAdmin() {
             <div class="admin-fila"><span>Distancia</span><strong>${pedido.distancia_km || 0} km</strong></div>
             <div class="admin-fila"><span>Total</span><strong>Gs. ${Number(pedido.monto || 0).toLocaleString('es-PY')}</strong></div>
             <div class="admin-fila" style="font-size: 11px; color: #8899bb;">
-              <span>ℹ️ Los repartidores con " LLENO" ya tienen ${MAX_PEDIDOS_POR_REPARTIDOR} pedidos activos</span>
+              <span>ℹ️ Los repartidores con "⛔ LLENO" ya tienen ${MAX_PEDIDOS_POR_REPARTIDOR} pedidos activos</span>
             </div>
             <div class="admin-control">
               <label>Repartidor</label>
@@ -85,7 +84,6 @@ async function guardarPedidoAdmin(id, estado, repartidorId) {
   try {
     const cuerpo = { estado };
     if (repartidorId) cuerpo.repartidor_id = Number(repartidorId);
-    // ✅ CORREGIDO: Se agregó /api/
     const res = await fetch(`${API_URL}/api/pedidos/${id}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
@@ -156,7 +154,6 @@ async function asignarPedidoAdmin(id) {
     return;
   }
   try {
-    // ✅ CORREGIDO: Se agregó /api/
     const [resPedidos, resRepartidores] = await Promise.all([
       fetch(`${API_URL}/api/pedidos`),
       fetch(`${API_URL}/api/repartidores`)
@@ -189,10 +186,10 @@ async function asignarPedidoAdmin(id) {
     if (cantidadActivos === 0) {
       mensajeConfirmacion = `✅ Primer pedido para este repartidor.\n${cercania.mensaje}`;
     } else if (cantidadActivos === 1) {
-      mensajeConfirmacion = `⚠️ Este repartidor ya tiene 1 pedido activo.\n${cercania.mensaje}\n\n¿Asignar el 2° pedido?`;
+      mensajeConfirmacion = `️ Este repartidor ya tiene 1 pedido activo.\n${cercania.mensaje}\n\n¿Asignar el 2° pedido?`;
     } else if (cantidadActivos === 2) {
       if (!cercania.cerca && cercania.distancia !== null) {
-        alert(`⛔ No se puede asignar el 3° pedido.\n\n${cercania.mensaje}\nEl 3° pedido debe estar a ≤ ${RADIO_CERCANIA_KM} km de la ubicación del repartidor.\n\nAsigná este pedido a otro repartidor más cercano.`);
+        alert(` No se puede asignar el 3° pedido.\n\n${cercania.mensaje}\nEl 3° pedido debe estar a ≤ ${RADIO_CERCANIA_KM} km de la ubicación del repartidor.\n\nAsigná este pedido a otro repartidor más cercano.`);
         return;
       }
       mensajeConfirmacion = `⚠️ Este será el 3° y último pedido permitido.\n${cercania.mensaje}\n\n¿Confirmar asignación?`;
