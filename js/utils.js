@@ -83,7 +83,7 @@ function abrirNavegacion(coordenadas) {
 }
 
 // ==========================================
-// FUNCIÓN CRÍTICA: Mostrar Secciones
+// FUNCIÓN CRÍTICA AGREGADA: Mostrar Secciones
 // ==========================================
 function mostrarSeccion(nombreSeccion) {
   // 1. Ocultar todas las secciones
