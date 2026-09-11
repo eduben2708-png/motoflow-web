@@ -102,16 +102,16 @@ async function cargarPanelMiRuta(verificarNuevos = false) {
           </div>
           <div style="font-size: 13px; color: #cbd5e1; line-height: 1.7;">
             <div>📍 <strong>Retiro:</strong> ${pedido.origen_direccion || 'Sin dirección'}</div>
-            <div> <strong>Entrega:</strong> ${pedido.destino_direccion || 'Sin dirección'}</div>
+            <div>📍 <strong>Entrega:</strong> ${pedido.destino_direccion || 'Sin dirección'}</div>
             <div><strong>Servicio:</strong> ${pedido.tipo}</div>
-            <div> <strong>Distancia del servicio:</strong> ${Number(pedido.distancia_km || 0).toLocaleString('es-PY')} km</div>
+            <div>📏 <strong>Distancia del servicio:</strong> ${Number(pedido.distancia_km || 0).toLocaleString('es-PY')} km</div>
             <div>🧭 <strong>Distancia aprox. hasta el retiro:</strong> ${distanciaHastaRetiro === null ? 'Activá el GPS para calcularla' : `${distanciaHastaRetiro} km`}</div>
-            <div> <strong>Tarifa del servicio:</strong> ${tarifaServicio ? `Gs. ${tarifaServicio.toLocaleString('es-PY')}` : 'No disponible'}</div>
-            <div> <strong>Forma de pago:</strong> ${formatearTipoPago(pedido.tipo_pago)}</div>
+            <div>🛵 <strong>Tarifa del servicio:</strong> ${tarifaServicio ? `Gs. ${tarifaServicio.toLocaleString('es-PY')}` : 'No disponible'}</div>
+            <div>💳 <strong>Forma de pago:</strong> ${formatearTipoPago(pedido.tipo_pago)}</div>
             <div>💰 <strong>Total a cobrar al cliente:</strong> Gs. ${Number(pedido.monto || 0).toLocaleString('es-PY')}</div>
           </div>
           <div class="repartidor-acciones">
-            <button class="btn-gps" onclick="abrirNavegacion('${destinoNavegacion || ''}')">🧭 ${textoNavegacion}</button>
+            <button class="btn-gps" onclick="abrirNavegacion('${destinoNavegacion || ''}')"> ${textoNavegacion}</button>
             ${botonAccion}
           </div>
         </div>`;
