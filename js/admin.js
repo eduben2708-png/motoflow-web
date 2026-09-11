@@ -29,7 +29,7 @@ async function cargarPanelAdmin() {
       let badge = '';
       let disabled = '';
       if (repartidor.activos >= MAX_PEDIDOS_POR_REPARTIDOR) {
-        badge = `<span style="color:#f44336;">⛔ LLENO (${repartidor.activos})</span>`;
+        badge = `<span style="color:#f44336;"> LLENO (${repartidor.activos})</span>`;
         disabled = 'disabled';
       } else if (repartidor.activos === 2) {
         badge = `<span style="color:#ff9800;">⚠️ (${repartidor.activos}/3)</span>`;
@@ -171,7 +171,7 @@ async function asignarPedidoAdmin(id) {
     );
     const cantidadActivos = pedidosActivos.length;
     if (cantidadActivos >= MAX_PEDIDOS_POR_REPARTIDOR) {
-      alert(` Este repartidor ya tiene ${MAX_PEDIDOS_POR_REPARTIDOR} pedidos activos.\n\nDebe completar al menos uno antes de recibir otro.`);
+      alert(`⛔ Este repartidor ya tiene ${MAX_PEDIDOS_POR_REPARTIDOR} pedidos activos.\n\nDebe completar al menos uno antes de recibir otro.`);
       return;
     }
     const nuevoPedido = pedidos.find(p => Number(p.id) === Number(id));
@@ -186,10 +186,10 @@ async function asignarPedidoAdmin(id) {
     if (cantidadActivos === 0) {
       mensajeConfirmacion = `✅ Primer pedido para este repartidor.\n${cercania.mensaje}`;
     } else if (cantidadActivos === 1) {
-      mensajeConfirmacion = `️ Este repartidor ya tiene 1 pedido activo.\n${cercania.mensaje}\n\n¿Asignar el 2° pedido?`;
+      mensajeConfirmacion = `⚠️ Este repartidor ya tiene 1 pedido activo.\n${cercania.mensaje}\n\n¿Asignar el 2° pedido?`;
     } else if (cantidadActivos === 2) {
       if (!cercania.cerca && cercania.distancia !== null) {
-        alert(` No se puede asignar el 3° pedido.\n\n${cercania.mensaje}\nEl 3° pedido debe estar a ≤ ${RADIO_CERCANIA_KM} km de la ubicación del repartidor.\n\nAsigná este pedido a otro repartidor más cercano.`);
+        alert(`⛔ No se puede asignar el 3° pedido.\n\n${cercania.mensaje}\nEl 3° pedido debe estar a ≤ ${RADIO_CERCANIA_KM} km de la ubicación del repartidor.\n\nAsigná este pedido a otro repartidor más cercano.`);
         return;
       }
       mensajeConfirmacion = `⚠️ Este será el 3° y último pedido permitido.\n${cercania.mensaje}\n\n¿Confirmar asignación?`;
