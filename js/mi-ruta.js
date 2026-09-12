@@ -111,7 +111,7 @@ async function cargarPanelMiRuta(verificarNuevos = false) {
             <div>💰 <strong>Total a cobrar al cliente:</strong> Gs. ${Number(pedido.monto || 0).toLocaleString('es-PY')}</div>
           </div>
           <div class="repartidor-acciones">
-            <button class="btn-gps" onclick="abrirNavegacion('${destinoNavegacion || ''}')"> ${textoNavegacion}</button>
+            <button class="btn-gps" onclick="abrirNavegacion('${destinoNavegacion || ''}')">🧭 ${textoNavegacion}</button>
             ${botonAccion}
           </div>
         </div>`;

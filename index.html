@@ -1,185 +1,1780 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>MotoCourier CDE</title>
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
-  <link rel="stylesheet" href="css/estilos.css">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🛵 MotoCourier CDE</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #0f1729; color: #fff; }
+        .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+        
+        .login-screen { display: flex; flex-direction: column; justify-content: center; min-height: 100vh; }
+        .logo { font-size: 48px; text-align: center; margin-bottom: 10px; }
+        .title { font-size: 24px; text-align: center; color: #8899bb; margin-bottom: 40px; }
+        .card { background: #1a2540; padding: 30px; border-radius: 16px; }
+        .form-group { margin-bottom: 20px; }
+        .label { display: block; color: #8899bb; font-size: 14px; margin-bottom: 8px; }
+        input, select { width: 100%; padding: 12px; background: #0f1729; border: 1px solid #444; border-radius: 8px; color: #fff; font-size: 16px; }
+        input::placeholder, select::placeholder { color: #666; }
+        button { width: 100%; padding: 12px; background: #2563eb; color: #fff; border: none; border-radius: 8px; font-size: 16px; font-weight: bold; cursor: pointer; margin-top: 8px; }
+        button:hover { background: #1d4ed8; }
+        .hidden { display: none !important; }
+
+        /* Respaldo visual para Compra por Encargo */
+        .form-group:has(#tipoServicio option[value="encargo"]:checked) + #grupoMontoPedido {
+            display: block !important;
+        }
+        .form-group:has(#tipoServicio option[value="encargo"]:checked) ~ #desgloseTarifa #filaMontoCompra,
+        .form-group:has(#tipoServicio option[value="encargo"]:checked) ~ #desgloseTarifa #filaComision {
+            display: flex !important;
+        }
+        
+        .dashboard { display: flex; flex-direction: column; min-height: 100vh; }
+        .header { background: #1a2540; padding: 20px; display: flex; justify-content: space-between; align-items: center; }
+        .header-info h2 { font-size: 24px; margin-bottom: 4px; }
+        .header-info p { font-size: 12px; color: #8899bb; }
+        .btn-logout { padding: 8px 16px; background: #f44336; border: none; color: #fff; border-radius: 6px; cursor: pointer; }
+        
+        .nav-buttons { display: flex; gap: 8px; padding: 12px; background: #1a2540; overflow-x: auto; }
+        .nav-btn { flex: 1; padding: 10px; background: #2563eb; color: #fff; border: none; border-radius: 8px; cursor: pointer; font-size: 11px; white-space: nowrap; }
+        .nav-btn.active { background: #4caf50; }
+        
+        .content { flex: 1; overflow-y: auto; padding: 16px; }
+        
+        #mapaCrear { width: 100%; height: 350px; border-radius: 8px; margin-bottom: 16px; border: 2px solid #444; }
+        .mapa-info { background: #1a2540; padding: 12px; border-radius: 8px; margin-bottom: 12px; font-size: 12px; color: #8899bb; }
+        
+        #mapa { width: 100%; height: 400px; border-radius: 8px; margin-bottom: 16px; }
+        
+        .chat-container { display: flex; flex-direction: column; height: 500px; background: #1a2540; border-radius: 8px; }
+        .chat-mensajes { flex: 1; overflow-y: auto; padding: 16px; display: flex; flex-direction: column; gap: 12px; }
+        .mensaje { padding: 10px 12px; border-radius: 8px; max-width: 80%; word-wrap: break-word; }
+        .mensaje-cliente { align-self: flex-end; background: #2563eb; }
+        .mensaje-repartidor { align-self: flex-start; background: #4caf50; }
+        .mensaje-hora { font-size: 10px; color: #8899bb; }
+        .chat-input { padding: 12px; display: flex; gap: 8px; border-top: 1px solid #0f1729; }
+        .chat-input input { flex: 1; padding: 8px; background: #0f1729; border: 1px solid #444; }
+        .chat-input button { flex: 0.2; padding: 8px; }
+        
+        .notificacion { background: #4caf50; padding: 12px; border-radius: 8px; margin-bottom: 12px; }
+        
+        .pedido-card { background: #1a2540; padding: 16px; border-radius: 8px; margin-bottom: 12px; border-left: 4px solid #2563eb; }
+        .pedido-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+        .pedido-id { font-weight: bold; }
+        .estado { padding: 4px 12px; border-radius: 20px; font-size: 11px; }
+        .estado.pendiente { background: #ff9800; }
+        .estado.asignado { background: #2196f3; }
+        .estado.en_retiro { background: #f59e0b; }
+        .estado.en_camino { background: #4caf50; }
+        .estado.entregado { background: #8bc34a; }
+        
+        .filtros { display: flex; gap: 8px; padding: 12px; background: #0f1729; }
+        .filtro-btn { padding: 8px 16px; background: #1a2540; border: 1px solid #444; color: #8899bb; border-radius: 20px; cursor: pointer; font-size: 12px; }
+        .filtro-btn.active { background: #2563eb; color: #fff; border-color: #2563eb; }
+        
+        .repartidor-card { background: #1a2540; padding: 16px; border-radius: 8px; margin-bottom: 12px; }
+        .repartidor-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+        .online { color: #4caf50; font-weight: bold; }
+        .info-row { display: flex; justify-content: space-around; margin-bottom: 12px; padding-bottom: 12px; border-bottom: 1px solid #0f1729; text-align: center; }
+        .stat-label { font-size: 12px; color: #8899bb; }
+        .stat-value { font-size: 16px; font-weight: bold; color: #fff; }
+        
+        .btn-asignar { width: 100%; padding: 10px; background: #2563eb; border: none; color: #fff; border-radius: 6px; cursor: pointer; font-size: 12px; }
+        .admin-titulo { font-size: 20px; margin-bottom: 4px; }
+        .admin-subtitulo { color: #8899bb; font-size: 13px; margin-bottom: 16px; }
+        .admin-estadisticas { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-bottom: 16px; }
+        .admin-estadistica { background: #1a2540; padding: 14px; border-radius: 10px; border-left: 4px solid #2563eb; }
+        .admin-estadistica .numero { display: block; font-size: 24px; font-weight: bold; margin-top: 4px; }
+        .admin-pedido { background: #1a2540; padding: 16px; border-radius: 10px; margin-bottom: 12px; border-left: 4px solid #2563eb; }
+        .admin-fila { display: flex; justify-content: space-between; gap: 12px; margin: 8px 0; font-size: 13px; color: #cbd5e1; }
+        .admin-control { margin-top: 12px; }
+        .admin-control label { display: block; font-size: 12px; color: #8899bb; margin-bottom: 5px; }
+        .admin-control select { padding: 9px; font-size: 13px; }
+        .admin-acciones { display: flex; gap: 8px; margin-top: 10px; }
+        .admin-acciones button { margin: 0; padding: 10px; font-size: 12px; }
+        .registro-repartidor { background: #1a2540; padding: 16px; border-radius: 10px; margin-bottom: 16px; }
+        .registro-repartidor h3 { font-size: 17px; margin-bottom: 4px; }
+        .registro-repartidor p { color: #8899bb; font-size: 12px; margin-bottom: 14px; }
+        .registro-repartidor-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+        .registro-repartidor-grid .form-group { margin-bottom: 0; }
+        .registro-repartidor-grid input { padding: 10px; font-size: 14px; }
+        .repartidor-panel { background: #1a2540; padding: 16px; border-radius: 10px; margin-bottom: 16px; }
+        .repartidor-panel h3 { font-size: 20px; margin-bottom: 4px; }
+        .repartidor-panel p { color: #8899bb; font-size: 13px; margin-bottom: 14px; }
+        .gps-estado { background: #0f1729; color: #93c5fd; padding: 10px; border-radius: 8px; font-size: 12px; margin-bottom: 12px; }
+        .repartidor-acciones { display: flex; gap: 8px; margin-top: 12px; }
+        .repartidor-acciones button { margin: 0; padding: 10px; font-size: 13px; }
+        .btn-entregar { background: #4caf50; }
+        .btn-gps { background: #0ea5e9; margin-top: 0; }
+        
+        .no-data { text-align: center; color: #8899bb; padding: 40px; }
+        
+        .desglose-box { background: #0f1729; padding: 16px; border-radius: 8px; margin-bottom: 16px; }
+        .desglose-row { display: flex; justify-content: space-between; font-size: 14px; color: #8899bb; margin-bottom: 8px; }
+        .desglose-total { border-top: 1px solid #444; padding-top: 12px; margin-top: 12px; font-size: 16px; color: #2196f3; font-weight: bold; }
+        
+        .instruccion { background: #1a2540; padding: 12px; border-radius: 8px; margin-bottom: 12px; font-size: 13px; color: #4caf50; border-left: 3px solid #4caf50; }
+        .punto-marcado { background: #2196f3; padding: 12px; border-radius: 8px; margin-bottom: 12px; font-size: 13px; color: #fff; }
+        .acciones-puntos { display: flex; gap: 8px; margin: 12px 0 16px; }
+        .acciones-puntos button { width: auto; flex: 1; margin: 0; padding: 10px 8px; font-size: 12px; }
+        .btn-editar-punto { background: #475569; }
+        .btn-editar-punto:hover { background: #64748b; }
+        .btn-limpiar-puntos { background: #b91c1c; }
+        .btn-limpiar-puntos:hover { background: #dc2626; }
+    </style>
 </head>
 <body>
-  <div class="container">
-    <div id="loginScreen">
-      <div class="logo">🛵</div>
-      <h1>MotoCourier CDE</h1>
-      <div id="paso1">
-        <p>Ingresa tu número</p>
-        <div class="input-group">
-          <span class="prefix">🇵🇾 +595</span>
-          <input type="tel" id="telefono" placeholder="981123456" maxlength="9">
+    <div class="container">
+        <!-- LOGIN SCREEN -->
+        <div id="loginScreen" class="login-screen">
+            <div class="logo">🛵</div>
+            <div class="title">MotoCourier CDE</div>
+            <div class="card">
+                <div id="paso1">
+                    <div class="form-group">
+                        <label class="label">Ingresa tu número</label>
+                        <div style="display: flex;">
+                            <span style="padding: 12px; background: #0f1729; border-radius: 8px 0 0 8px; border: 1px solid #444;">🇵🇾 +595</span>
+                            <input id="telefono" type="tel" inputmode="numeric" placeholder="Ej.: 984768500" maxlength="9">
+                        </div>
+                    </div>
+                    <button onclick="enviarCodigo()">Enviar código</button>
+                </div>
+                <div id="paso2" class="hidden">
+                    <div class="form-group">
+                        <label class="label">Verificá tu código</label>
+                        <input id="codigo" type="text" placeholder="123456" maxlength="6">
+                    </div>
+                    <button onclick="verificarCodigo()">Verificar</button>
+                    <button onclick="paso1()" style="background: #666;">← Cambiar número</button>
+                </div>
+            </div>
         </div>
-        <button onclick="enviarCodigo()">Enviar código</button>
-      </div>
-      <div id="paso2" class="hidden">
-        <p>Verificá tu código</p>
-        <input type="text" id="codigo" placeholder="123456" maxlength="6">
-        <button onclick="verificarCodigo()">Verificar</button>
-        <button class="btn-secondary" onclick="paso1()">← Cambiar número</button>
-      </div>
+
+        <!-- DASHBOARD -->
+        <div id="dashboardScreen" class="dashboard hidden">
+            <div class="header">
+                <div class="header-info">
+                    <h2>MotoCourier CDE</h2>
+                    <p id="usuarioTel">+595 973802026</p>
+                </div>
+                <button class="btn-logout" onclick="logout()">Salir</button>
+            </div>
+
+            <div class="nav-buttons">
+                <button id="navPedidos" class="nav-btn active" onclick="mostrarSeccion('pedidos')">Pedidos</button>
+                <button id="navChat" class="nav-btn" onclick="mostrarSeccion('chat')">Chat</button>
+                <button id="navMapa" class="nav-btn" onclick="mostrarSeccion('mapa')">Mapa</button>
+                <button id="navCrear" class="nav-btn" onclick="mostrarSeccion('crear')">+ Nuevo</button>
+                <button id="navRepartidores" class="nav-btn" onclick="mostrarSeccion('repartidores')">Repartidores</button>
+                <button id="navAdmin" class="nav-btn" onclick="mostrarSeccion('admin')">Administrar</button>
+                <button id="navMiRuta" class="nav-btn hidden" onclick="mostrarSeccion('miRuta')">Mi ruta</button>
+                <button id="navHistorial" class="nav-btn" onclick="mostrarSeccion('historial')">Historial</button>
+            </div>
+
+            <div class="content">
+                <!-- NOTIFICACIONES -->
+                <div id="notificaciones"></div>
+
+                <!-- CHAT -->
+                <div id="seccionChat" class="hidden">
+                    <div class="chat-container">
+                        <div class="chat-mensajes" id="chatMensajes"></div>
+                        <div class="chat-input">
+                            <input id="inputMensaje" type="text" placeholder="Escribe un mensaje...">
+                            <button onclick="enviarMensaje()">Enviar</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- MAPA SEGUIMIENTO -->
+                <div id="seccionMapa" class="hidden">
+                    <div class="mapa-info">📍 Ubicación en tiempo real del repartidor</div>
+                    <div id="mapa"></div>
+                    <div id="mapaDetalles" class="mapa-info"></div>
+                </div>
+
+                <!-- PEDIDOS -->
+                <div id="seccionPedidos">
+                    <div id="listaPedidos"></div>
+                </div>
+
+                <!-- CREAR PEDIDO -->
+                <div id="seccionCrear" class="hidden">
+                    <div class="card">
+                        <div class="instruccion" id="instruccionMapa">
+                            📍 Haz click en el mapa para marcar PUNTO DE RETIRO (🔴 rojo)
+                        </div>
+                        <div id="mapaCrear"></div>
+                        <div id="puntoRetiro" class="punto-marcado hidden">
+                            ✅ Punto de RETIRO marcado
+                        </div>
+                        <div class="form-group" style="margin-top: 12px;">
+                            <label class="label" for="referenciaRetiro">¿Dónde retiramos?</label>
+                            <input id="referenciaRetiro" type="text" maxlength="255"
+                                placeholder="Ej.: Tienda de Candy, Av. San Blas y Monseñor Rodríguez">
+                        </div>
+                        
+                        <div class="instruccion" style="margin-top: 16px;">
+                            📍 Haz click en el mapa para marcar PUNTO DE ENTREGA (🟢 verde)
+                        </div>
+                        <div id="puntoEntrega" class="punto-marcado hidden">
+                            ✅ Punto de ENTREGA marcado
+                        </div>
+                        <div class="form-group" style="margin-top: 12px;">
+                            <label class="label" for="referenciaEntrega">¿Dónde entregamos?</label>
+                            <input id="referenciaEntrega" type="text" maxlength="255"
+                                placeholder="Ej.: Casa de Juan, Barrio San José, portón negro">
+                        </div>
+
+                        <div class="acciones-puntos">
+                            <button type="button" class="btn-editar-punto" onclick="editarPunto('retiro')">Editar retiro</button>
+                            <button type="button" class="btn-editar-punto" onclick="editarPunto('entrega')">Editar entrega</button>
+                            <button type="button" class="btn-limpiar-puntos" onclick="limpiarPuntos()">Limpiar</button>
+                        </div>
+
+                       <div class="form-group" style="margin-top: 16px;">
+    <label class="label">Tipo de Servicio</label>
+    <select id="tipoServicio" onchange="actualizarFormularioServicio()">
+        <option value="delivery">🚚 Delivery / Entrega</option>
+        <option value="retiro">📦 Retiro / Recogida</option>
+        <option value="encargo">🛒 Compra por Encargo</option>
+    </select>
+</div>
+
+<div class="form-group hidden" id="grupoMontoPedido">
+    <label class="label">Monto de la compra (Gs.)</label>
+    <input id="montoPedido" type="number" min="0" placeholder="0" onchange="calcularTarifa()">
+</div>
+
+<!-- DESGLOSE DE TARIFA -->
+<div class="desglose-box hidden" id="desgloseTarifa">
+    <div class="desglose-row">
+        <span>📍 Distancia:</span>
+        <span><span id="distanciaKm">0</span> km</span>
     </div>
 
-    <div id="dashboardScreen" class="hidden">
-      <div class="header">
-        <div class="logo">🛵</div>
-        <h2>MotoCourier CDE</h2>
-        <div class="user-info">
-          <span id="usuarioTel">+595 ...</span>
-          <button onclick="logout()" class="btn-logout">Salir</button>
-        </div>
-      </div>
-
-      <div class="nav-buttons">
-        <button id="navPedidos" class="nav-btn active" onclick="mostrarSeccion('pedidos')">Pedidos</button>
-        <button id="navChat" class="nav-btn" onclick="mostrarSeccion('chat')">Chat</button>
-        <button id="navMapa" class="nav-btn" onclick="mostrarSeccion('mapa')">Mapa</button>
-        <button id="navCrear" class="nav-btn" onclick="mostrarSeccion('crear')">+ Nuevo</button>
-        <button id="navRepartidores" class="nav-btn hidden" onclick="mostrarSeccion('repartidores')">Repartidores</button>
-        <button id="navAdmin" class="nav-btn hidden" onclick="mostrarSeccion('admin')">Administrar</button>
-        <button id="navMiRuta" class="nav-btn hidden" onclick="mostrarSeccion('miRuta')">Mi ruta</button>
-        <button id="navHistorial" class="nav-btn" onclick="mostrarSeccion('historial')">Historial</button>
-      </div>
-
-      <div class="content">
-        <div id="seccionPedidos"><h3>Mis Pedidos</h3><div id="listaPedidos"></div></div>
-        
-        <div id="seccionChat" class="hidden">
-          <h3>Chat del Pedido</h3>
-          <div id="chatMensajes" class="chat-container"></div>
-          <div class="chat-input">
-            <input type="text" id="inputMensaje" placeholder="Escribí un mensaje...">
-            <button onclick="enviarMensaje()">Enviar</button>
-          </div>
-        </div>
-        
-        <div id="seccionMapa" class="hidden">
-          <h3>Mapa en Tiempo Real</h3>
-          <div id="mapa" style="height: 400px;"></div>
-          <div id="mapaDetalles" class="info-box"></div>
-        </div>
-        
-        <div id="seccionCrear" class="hidden">
-          <h3>Crear Nuevo Pedido</h3>
-          <div class="form-group">
-            <label id="instruccionMapa">📍 Paso 1: Marcá el PUNTO DE RETIRO</label>
-            <div id="mapaCrear" style="height: 300px;"></div>
-          </div>
-          <div id="puntoRetiro" class="hidden">
-            <div class="info-box">✅ Punto de RETIRO marcado <input type="text" id="referenciaRetiro" placeholder="¿Dónde retiramos?"></div>
-          </div>
-          <div id="puntoEntrega" class="hidden">
-            <div class="info-box">✅ Punto de ENTREGA marcado <input type="text" id="referenciaEntrega" placeholder="¿Dónde entregamos?"></div>
-          </div>
-          <div class="form-actions">
-            <button class="btn-secondary" onclick="editarPunto('retiro')">Editar retiro</button>
-            <button class="btn-secondary" onclick="editarPunto('entrega')">Editar entrega</button>
-            <button class="btn-secondary" onclick="limpiarPuntos()">Limpiar</button>
-          </div>
-          <div class="form-group">
-            <label>Tipo de Servicio</label>
-            <select id="tipoServicio" onchange="actualizarFormularioServicio()">
-              <option value="delivery"> Delivery / Entrega</option>
-              <option value="retiro">📦 Retiro / Recogida</option>
-              <option value="encargo">🛒 Compra por Encargo</option>
-            </select>
-          </div>
-          <div id="grupoMontoPedido" class="form-group hidden">
-            <label>Monto de la compra (Gs.)</label>
-            <input type="number" id="montoPedido" placeholder="50000" onchange="calcularTarifa()">
-          </div>
-          <div id="desgloseTarifa" class="hidden">
-            <div class="tarifa-box">
-              <div> Distancia: <strong id="distanciaKm">0</strong> km</div>
-              <div>Tarifa base: <strong id="desgloseTarifaBase">0</strong></div>
-              <div id="filaKmAdicionales" class="hidden">Kilómetros adicionales: <strong id="desgloseKmAdicionales">0</strong></div>
-              <div>Tarifa MotoCourier: <strong id="desgloseTarifaMoto">0</strong></div>
-              <div id="filaMontoCompra" class="hidden">Monto de la compra: <strong id="desgloseMonto">0</strong></div>
-              <div id="filaComision" class="hidden">Comisión por encargo (2%): <strong id="desgloseComision">0</strong></div>
-              <div class="total">TOTAL A PAGAR: <strong id="desgloseTotal">0</strong> Gs.</div>
-            </div>
-          </div>
-          <button onclick="crearPedidoConTarifa()" class="btn-primary">Confirmar Pedido</button>
+    <div style="border-top: 1px solid #444; padding-top: 12px; margin-top: 12px;">
+        <div class="desglose-row">
+            <span>Tarifa base:</span>
+            <span id="desgloseTarifaBase" style="color: #fff;">0</span>
         </div>
 
-        <div id="seccionAdmin" class="hidden">
-          <h3>Panel administrador</h3>
-          <p class="subtitle">Control de pedidos, asignaciones y estados.</p>
-          <div id="adminEstadisticas" class="stats-grid"></div>
-          <div id="listaAdminPedidos"></div>
+        <div class="desglose-row hidden" id="filaKmAdicionales">
+            <span>Kilómetros adicionales:</span>
+            <span id="desgloseKmAdicionales" style="color: #fbbf24;">0</span>
         </div>
 
-        <div id="seccionMiRuta" class="hidden">
-          <h3>Mi ruta de reparto</h3>
-          <p class="subtitle">Acá verás únicamente los pedidos asignados a tu cuenta.</p>
-          <div id="estadoGpsRepartidor" class="info-box">Ubicación GPS: sin actualizar.</div>
-          <button onclick="actualizarGpsMiRepartidor()" class="btn-primary">Activar GPS automático</button>
-          <div id="listaMiRuta"></div>
+        <div class="desglose-row">
+            <span>Tarifa MotoCourier:</span>
+            <span id="desgloseTarifaMoto" style="color: #4caf50;">0</span>
         </div>
 
-        <div id="seccionRepartidores" class="hidden">
-          <h3>Registrar repartidor</h3>
-          <p class="subtitle">Quedará pendiente hasta que lo apruebes.</p>
-          <div class="form-group"><label>Nombre completo</label><input type="text" id="repNombre" placeholder="Juan Pérez"></div>
-          <div class="form-group"><label>Teléfono</label><input type="tel" id="repTelefono" placeholder="0981123456"></div>
-          <div class="form-group"><label>Cédula de Identidad</label><input type="text" id="repCi" placeholder="1234567"></div>
-          <div class="form-group"><label>Placa de la moto</label><input type="text" id="repPlaca" placeholder="ABC123"></div>
-          <div class="form-group"><label>Marca de la moto</label><input type="text" id="repMarcaMoto" placeholder="Honda"></div>
-          <div class="form-group"><label>Modelo de la moto</label><input type="text" id="repModeloMoto" placeholder="CB150"></div>
-          <button onclick="registrarRepartidor()" class="btn-primary">Registrar repartidor</button>
-          <h3 style="margin-top: 24px;">Lista de repartidores</h3>
-          <div class="filtros">
-            <button class="filtro-btn active" onclick="filtrarRepartidores('todos')">Todos</button>
-            <button class="filtro-btn" onclick="filtrarRepartidores('activos')">Activos</button>
-            <button class="filtro-btn" onclick="filtrarRepartidores('aprobados')">Aprobados</button>
-          </div>
-          <div id="listaRepartidores"></div>
+        <div class="desglose-row hidden" id="filaMontoCompra">
+            <span>Monto de la compra:</span>
+            <span id="desgloseMonto" style="color: #fff;">0</span>
         </div>
 
-        <div id="seccionHistorial" class="hidden">
-          <h3>Historial de pedidos</h3>
-          <div class="filtros-historial">
-            <div class="form-group"><label>Desde</label><input type="date" id="historialFechaDesde"></div>
-            <div class="form-group"><label>Hasta</label><input type="date" id="historialFechaHasta"></div>
-            <div class="form-group">
-              <label>Estado</label>
-              <select id="historialEstado">
-                <option value="">Todos (entregado + cancelado)</option>
-                <option value="entregado">Entregado</option>
-                <option value="cancelado">Cancelado</option>
-              </select>
-            </div>
-            <div id="grupoHistorialCliente" class="form-group hidden"><label>Cliente ID</label><input type="number" id="historialClienteId"></div>
-            <div id="grupoHistorialRepartidor" class="form-group hidden"><label>Repartidor ID</label><input type="number" id="historialRepartidorId"></div>
-            <button onclick="cargarHistorial()" class="btn-primary">Filtrar</button>
-          </div>
-          <div id="listaHistorial"></div>
+        <div class="desglose-row hidden" id="filaComision">
+            <span>Comisión por encargo (2%):</span>
+            <span id="desgloseComision" style="color: #fbbf24;">0</span>
         </div>
-      </div>
-      <div id="notificaciones"></div>
+
+        <div class="desglose-total">
+            TOTAL A PAGAR: <span id="desgloseTotal">0</span> Gs.
+        </div>
     </div>
-  </div>
+</div>
 
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
-  <script src="js/config.js"></script>
-  <script src="js/utils.js"></script>
-  <script src="js/tarifas.js"></script>
-  <script src="js/auth.js"></script>
-  <script src="js/pedidos.js"></script>
-  <script src="js/chat.js"></script>
-  <script src="js/mapa.js"></script>
-  <script src="js/admin.js"></script>
-  <script src="js/repartidores.js"></script>
-  <script src="js/mi-ruta.js"></script>
-  <script src="js/historial.js"></script>
-  <script src="js/liquidaciones-frontend.js"></script>
+                        <button onclick="crearPedidoConTarifa()">Confirmar Pedido</button>
+                    </div>
+                </div>
+
+                <!-- PANEL ADMINISTRADOR -->
+                <div id="seccionAdmin" class="hidden">
+                    <h3 class="admin-titulo">Panel administrador</h3>
+                    <p class="admin-subtitulo">Control de pedidos, asignaciones y estados.</p>
+                    <div class="admin-estadisticas" id="adminEstadisticas"></div>
+                    <div id="listaAdminPedidos"></div>
+                </div>
+
+                <!-- PANEL DEL REPARTIDOR -->
+                <div id="seccionMiRuta" class="hidden">
+                    <div class="repartidor-panel">
+                        <h3>Mi ruta de reparto</h3>
+                        <p>Acá verás únicamente los pedidos asignados a tu cuenta.</p>
+                        <div id="estadoGpsRepartidor" class="gps-estado">Ubicación GPS: sin actualizar.</div>
+                        <button class="btn-gps" onclick="actualizarGpsMiRepartidor()">Activar GPS automático</button>
+                    </div>
+                    <div id="listaMiRuta"></div>
+                </div>
+
+                <!-- REPARTIDORES -->
+                <div id="seccionRepartidores" class="hidden">
+                    <div class="registro-repartidor">
+                        <h3>Registrar repartidor</h3>
+                        <p>Quedará pendiente hasta que lo apruebes.</p>
+                        <div class="registro-repartidor-grid">
+                            <div class="form-group"><input id="repNombre" placeholder="Nombre completo"></div>
+                            <div class="form-group"><input id="repTelefono" type="tel" inputmode="numeric" placeholder="Ej.: 984768500" maxlength="9"></div>
+                            <div class="form-group"><input id="repCi" placeholder="CI"></div>
+                            <div class="form-group"><input id="repPlaca" placeholder="Placa de moto"></div>
+                            <div class="form-group"><input id="repMarcaMoto" placeholder="Marca de moto"></div>
+                            <div class="form-group"><input id="repModeloMoto" placeholder="Modelo de moto"></div>
+                        </div>
+                        <button onclick="registrarRepartidor()">Registrar repartidor</button>
+                    </div>
+                    <div class="filtros">
+                        <button class="filtro-btn active" onclick="filtrarRepartidores('todos')">Todos</button>
+                        <button class="filtro-btn" onclick="filtrarRepartidores('activos')">Activos</button>
+                        <button class="filtro-btn" onclick="filtrarRepartidores('aprobados')">Aprobados</button>
+                    </div>
+                    <div id="listaRepartidores"></div>
+                </div>
+
+                <!-- HISTORIAL -->
+                <div id="seccionHistorial" class="hidden">
+                    <div class="card" id="filtrosHistorialAdmin" style="margin-bottom: 16px;">
+                        <div class="form-group">
+                            <label class="label">Desde</label>
+                            <input type="date" id="historialFechaDesde">
+                        </div>
+                        <div class="form-group">
+                            <label class="label">Hasta</label>
+                            <input type="date" id="historialFechaHasta">
+                        </div>
+                        <div class="form-group">
+                            <label class="label">Estado</label>
+                            <select id="historialEstado">
+                                <option value="">Todos (entregado + cancelado)</option>
+                                <option value="entregado">Entregado</option>
+                                <option value="cancelado">Cancelado</option>
+                            </select>
+                        </div>
+                        <div class="form-group" id="grupoHistorialCliente">
+                            <label class="label">Cliente ID (opcional)</label>
+                            <input type="number" id="historialClienteId" placeholder="Ej: 8">
+                        </div>
+                        <div class="form-group" id="grupoHistorialRepartidor">
+                            <label class="label">Repartidor ID (opcional)</label>
+                            <input type="number" id="historialRepartidorId" placeholder="Ej: 2">
+                        </div>
+                        <button onclick="cargarHistorial()">Filtrar</button>
+                    </div>
+                    <div id="listaHistorial"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Configuración de API_URL
+        // En producción (Vercel): apunta a Render
+        // En desarrollo: apunta a localhost
+        const API_URL = window.location.hostname === 'localhost' 
+            ? 'http://localhost:5000/api'
+            : 'https://motoflow-backend.onrender.com/api';
+        let usuarioId = null;
+        let usuarioTelefono = null;
+        let filtroRepartidor = 'todos';
+        let notificacionesVistas = [];
+        let mapa = null;
+        let mapaCrear = null;
+        let marcadorRepartidor = null;
+        let pedidoActivoChat = null;
+        
+        // Puntos marcados
+        let puntoRetiro = null;
+        let puntoEntrega = null;
+        let marcadorRetiro = null;
+        let marcadorEntrega = null;
+        let modoEdicionPunto = null;
+        let esRepartidor = false;
+        let usuarioRol = 'cliente';
+        let seguimientoGpsId = null;
+        let intervaloMiRuta = null;
+        let pedidosRepartidorConocidos = new Set();
+        let primeraCargaMiRuta = true;
+        let pedidosMiRutaActuales = [];
+
+        // Tarifas por distancia
+function obtenerDesgloseTarifa(distanciaKm) {
+    const distancia = Number(distanciaKm) || 0;
+    let tarifaBase;
+    let kmAdicionales = 0;
+    let costoKmAdicionales = 0;
+
+    if (distancia <= 5) {
+        tarifaBase = 20000;
+    } else if (distancia <= 7) {
+        tarifaBase = 25000;
+    } else if (distancia <= 10) {
+        tarifaBase = 30000;
+    } else if (distancia <= 13) {
+        tarifaBase = 40000;
+    } else {
+        tarifaBase = 50000;
+
+        if (distancia > 16) {
+            kmAdicionales = distancia - 16;
+            costoKmAdicionales = kmAdicionales * 4000;
+        }
+    }
+
+    return {
+        tarifaBase,
+        kmAdicionales,
+        costoKmAdicionales,
+        tarifaMotoCourier: tarifaBase + costoKmAdicionales
+    };
+}
+
+function obtenerTarifa(distanciaKm) {
+    return obtenerDesgloseTarifa(distanciaKm).tarifaMotoCourier;
+}
+
+// Pruebas automáticas: ver resultados en F12 > Console
+const pruebasTarifa = [
+    { km: 3, esperado: 20000 },
+    { km: 5, esperado: 20000 },
+    { km: 6, esperado: 25000 },
+    { km: 7, esperado: 25000 },
+    { km: 8, esperado: 30000 },
+    { km: 10, esperado: 30000 },
+    { km: 11, esperado: 40000 },
+    { km: 13, esperado: 40000 },
+    { km: 14, esperado: 50000 },
+    { km: 16, esperado: 50000 },
+    { km: 17, esperado: 54000 },
+    { km: 18, esperado: 58000 },
+    { km: 20, esperado: 66000 },
+    { km: 22, esperado: 74000 },
+    { km: 30, esperado: 106000 }
+];
+
+console.log('--- PRUEBAS DE TARIFA MOTOCOURIER CDE ---');
+
+pruebasTarifa.forEach(prueba => {
+    const resultado = obtenerTarifa(prueba.km);
+    const correcto = resultado === prueba.esperado;
+
+    console.log(
+        `${correcto ? '✅' : '❌'} ${prueba.km} km: ` +
+        `Gs. ${resultado.toLocaleString('es-PY')} | ` +
+        `Esperado: Gs. ${prueba.esperado.toLocaleString('es-PY')}`
+    );
+});
+
+        // Calcular distancia con OSRM
+        async function calcularDistanciaOSRM(lat1, lng1, lat2, lng2) {
+            const controlador = new AbortController();
+            const tiempoMaximo = setTimeout(() => controlador.abort(), 12000);
+
+            try {
+                const url = `https://router.project-osrm.org/route/v1/driving/${lng1},${lat1};${lng2},${lat2}`;
+                const respuesta = await fetch(url, { signal: controlador.signal });
+
+                if (!respuesta.ok) {
+                    throw new Error('OSRM no respondió correctamente');
+                }
+
+                const datos = await respuesta.json();
+
+                if (!datos.routes || !datos.routes[0]) {
+                    throw new Error('Ruta no disponible');
+                }
+
+                return Math.max(1, Math.round(datos.routes[0].distance / 1000));
+            } catch (error) {
+                console.error('No fue posible calcular la ruta real con OSRM.', error);
+                return null;
+            } finally {
+                clearTimeout(tiempoMaximo);
+            }
+        }
+
+        function actualizarFormularioServicio() {
+    const tipoServicio = document.getElementById('tipoServicio').value;
+    const grupoMontoPedido = document.getElementById('grupoMontoPedido');
+
+    if (tipoServicio === 'encargo') {
+        grupoMontoPedido.classList.remove('hidden');
+    } else {
+        grupoMontoPedido.classList.add('hidden');
+        document.getElementById('montoPedido').value = '';
+    }
+
+    calcularTarifa();
+}
+
+// Calcular tarifa según el tipo de servicio
+async function calcularTarifa() {
+    if (!puntoRetiro || !puntoEntrega) {
+        document.getElementById('desgloseTarifa').classList.add('hidden');
+        return;
+    }
+
+    const tipoServicio = document.getElementById('tipoServicio').value;
+    const montoCompra = parseInt(document.getElementById('montoPedido').value) || 0;
+
+    const distanciaKm = await calcularDistanciaOSRM(
+        puntoRetiro.lat, puntoRetiro.lng,
+        puntoEntrega.lat, puntoEntrega.lng
+    );
+
+    if (distanciaKm === null) {
+        alert('Error calculando distancia');
+        return;
+    }
+
+    const desgloseViaje = obtenerDesgloseTarifa(distanciaKm);
+    const tarifaMotoflow = desgloseViaje.tarifaMotoCourier;
+
+    // Solo Compra por Encargo cobra el producto más 2% de comisión.
+    const esEncargo = tipoServicio === 'encargo';
+    const comisionEncargo = esEncargo ? Math.round(montoCompra * 0.02) : 0;
+    const totalCobro = tarifaMotoflow + (esEncargo ? montoCompra + comisionEncargo : 0);
+
+    document.getElementById('distanciaKm').textContent = distanciaKm;
+    document.getElementById('desgloseTarifaBase').textContent = desgloseViaje.tarifaBase.toLocaleString('es-PY');
+    document.getElementById('desgloseKmAdicionales').textContent =
+        `${desgloseViaje.kmAdicionales.toLocaleString('es-PY')} km × 4.000 = ${desgloseViaje.costoKmAdicionales.toLocaleString('es-PY')}`;
+    document.getElementById('desgloseTarifaMoto').textContent = tarifaMotoflow.toLocaleString('es-PY');
+    document.getElementById('desgloseMonto').textContent = montoCompra.toLocaleString('es-PY');
+    document.getElementById('desgloseComision').textContent = comisionEncargo.toLocaleString('es-PY');
+    document.getElementById('desgloseTotal').textContent = totalCobro.toLocaleString('es-PY');
+
+    document.getElementById('filaMontoCompra').classList.toggle('hidden', !esEncargo);
+    document.getElementById('filaComision').classList.toggle('hidden', !esEncargo);
+    document.getElementById('filaKmAdicionales').classList.toggle('hidden', desgloseViaje.kmAdicionales <= 0);
+    document.getElementById('desgloseTarifa').classList.remove('hidden');
+}
+
+// Crear pedido con tarifa
+async function crearPedidoConTarifa() {
+    if (!puntoRetiro || !puntoEntrega) {
+        alert('Marca ambos puntos en el mapa');
+        return;
+    }
+
+    const referenciaRetiro = document.getElementById('referenciaRetiro').value.trim();
+    const referenciaEntrega = document.getElementById('referenciaEntrega').value.trim();
+
+    if (!referenciaRetiro || !referenciaEntrega) {
+        alert('Escribí una referencia para el retiro y otra para la entrega');
+        return;
+    }
+
+    const tipoServicio = document.getElementById('tipoServicio').value;
+    const montoCompra = parseInt(document.getElementById('montoPedido').value) || 0;
+
+    if (tipoServicio === 'encargo' && montoCompra <= 0) {
+        alert('Ingresa el monto de la compra');
+        return;
+    }
+
+    const distanciaKm = await calcularDistanciaOSRM(
+        puntoRetiro.lat, puntoRetiro.lng,
+        puntoEntrega.lat, puntoEntrega.lng
+    );
+
+    if (distanciaKm === null) {
+        alert('Error calculando distancia');
+        return;
+    }
+
+    const tarifaMotoflow = obtenerTarifa(distanciaKm);
+    const comisionEncargo = tipoServicio === 'encargo'
+        ? Math.round(montoCompra * 0.02)
+        : 0;
+
+    const totalCobro = tarifaMotoflow +
+        (tipoServicio === 'encargo' ? montoCompra + comisionEncargo : 0);
+
+    try {
+        const res = await fetch(`${API_URL}/pedidos`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                cliente_id: usuarioId,
+                tipo: tipoServicio,
+                origen_direccion: referenciaRetiro,
+                destino_direccion: referenciaEntrega,
+                origen_lat: puntoRetiro.lat,
+                origen_lng: puntoRetiro.lng,
+                destino_lat: puntoEntrega.lat,
+                destino_lng: puntoEntrega.lng,
+                monto: totalCobro,
+                distancia_km: distanciaKm,
+                monto_compra: tipoServicio === 'encargo' ? montoCompra : 0,
+                tipo_pago: 'pendiente'
+            })
+        });
+
+        const data = await res.json();
+
+        if (!res.ok || !data.id) {
+            throw new Error(data.error || 'No se pudo guardar el pedido');
+        }
+
+        if (data.id) {
+            const mensajeAsignacion = data.repartidor_id
+                ? ` Repartidor #${data.repartidor_id} asignado automáticamente.`
+                : ' Quedó pendiente porque no hay repartidores con GPS activo.';
+            alert(`Pedido creado. Total a pagar: ${totalCobro.toLocaleString('es-PY')} Gs.${mensajeAsignacion}`);
+
+            puntoRetiro = null;
+            puntoEntrega = null;
+            document.getElementById('montoPedido').value = '';
+            document.getElementById('referenciaRetiro').value = '';
+            document.getElementById('referenciaEntrega').value = '';
+            document.getElementById('desgloseTarifa').classList.add('hidden');
+            document.getElementById('puntoRetiro').classList.add('hidden');
+            document.getElementById('puntoEntrega').classList.add('hidden');
+
+            if (marcadorRetiro) mapaCrear.removeLayer(marcadorRetiro);
+            if (marcadorEntrega) mapaCrear.removeLayer(marcadorEntrega);
+
+            // Volver a la lista sin depender del evento del botón.
+            document.getElementById('seccionChat').classList.add('hidden');
+            document.getElementById('seccionMapa').classList.add('hidden');
+            document.getElementById('seccionCrear').classList.add('hidden');
+            document.getElementById('seccionRepartidores').classList.add('hidden');
+            document.getElementById('seccionAdmin').classList.add('hidden');
+            document.getElementById('seccionPedidos').classList.remove('hidden');
+
+            document.querySelectorAll('.nav-btn').forEach(boton => boton.classList.remove('active'));
+            document.querySelector('.nav-btn').classList.add('active');
+
+            await cargarPedidos();
+        }
+    } catch (error) {
+        alert('Error: ' + error.message);
+    }
+}
+
+        async function enviarCodigo() {
+            const telefono = document.getElementById('telefono').value;
+            if (!telefono || telefono.length < 9) {
+                alert('Ingresa un número válido');
+                return;
+            }
+
+            try {
+                const res = await fetch(`${API_URL}/auth/send-code`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ telefono })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    alert('El código de prueba es: 123456');
+                    document.getElementById('paso1').classList.add('hidden');
+                    document.getElementById('paso2').classList.remove('hidden');
+                }
+            } catch (error) {
+                alert('Error: ' + error.message);
+            }
+        }
+
+        async function verificarCodigo() {
+            const telefono = document.getElementById('telefono').value;
+            const codigo = document.getElementById('codigo').value;
+
+            try {
+                const res = await fetch(`${API_URL}/auth/verify-code`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ telefono, codigo })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    usuarioId = data.usuario.id;
+                    usuarioTelefono = data.usuario.telefono;
+                    usuarioRol = data.usuario.rol || 'cliente';
+                    await mostrarDashboard();
+                } else {
+                    alert('Código inválido');
+                }
+            } catch (error) {
+                alert('Error: ' + error.message);
+            }
+        }
+
+        function paso1() {
+            document.getElementById('paso1').classList.remove('hidden');
+            document.getElementById('paso2').classList.add('hidden');
+        }
+
+        async function mostrarDashboard() {
+            document.getElementById('loginScreen').classList.add('hidden');
+            document.getElementById('dashboardScreen').classList.remove('hidden');
+            document.getElementById('usuarioTel').textContent = '+595 ' + usuarioTelefono;
+
+            try {
+                const repartidor = await obtenerMiRepartidor();
+                esRepartidor = usuarioRol === 'repartidor' || Boolean(repartidor);
+            } catch (error) {
+                console.error('No se pudo identificar el tipo de cuenta.', error);
+            }
+
+            configurarMenuSegunCuenta();
+
+            if (esRepartidor) {
+                mostrarSeccionPorCodigo('miRuta');
+                iniciarActualizacionMiRuta();
+                return;
+            }
+
+            cargarPedidos();
+            iniciarNotificaciones();
+        }
+
+        function configurarMenuSegunCuenta() {
+    const botonesCliente = ['navPedidos', 'navChat', 'navMapa', 'navCrear'];
+
+    botonesCliente.forEach(id => document.getElementById(id).classList.toggle('hidden', esRepartidor));
+    document.getElementById('navRepartidores').classList.toggle('hidden', esRepartidor || usuarioRol !== 'admin');
+    document.getElementById('navAdmin').classList.toggle('hidden', esRepartidor || usuarioRol !== 'admin');
+    document.getElementById('navMiRuta').classList.toggle('hidden', !esRepartidor);
+    document.getElementById('navHistorial').classList.remove('hidden');
+
+    document.getElementById('grupoHistorialCliente').classList.toggle('hidden', usuarioRol !== 'admin');
+    document.getElementById('grupoHistorialRepartidor').classList.toggle('hidden', usuarioRol !== 'admin');
+}
+
+        async function cargarPedidos() {
+            try {
+                const res = await fetch(`${API_URL}/pedidos`);
+                const data = await res.json();
+                const misPedidos = data.filter(p => p.cliente_id === usuarioId);
+                
+                let html = '';
+                if (misPedidos.length === 0) {
+                    html = '<div class="no-data">No tienes pedidos aún</div>';
+                } else {
+                    misPedidos.forEach(p => {
+                        html += `
+                            <div class="pedido-card">
+                                <div class="pedido-header">
+                                    <div class="pedido-id">Pedido #${p.id}</div>
+                                    <div class="estado ${p.estado}">${p.estado}</div>
+                                </div>
+                                <div style="font-size: 12px; color: #8899bb; margin-bottom: 8px;">
+                                    📍 RETIRO<br>
+                                    📍 ENTREGA
+                                </div>
+                                <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+                                    <div style="color: #4caf50; font-weight: bold;">Total: ${p.monto.toLocaleString()} Gs.</div>
+                                    <div style="color: #2563eb; font-size: 12px;">${p.tipo}</div>
+                                </div>
+                                ${p.repartidor_id ? `<button onclick="abrirChat(${p.id})" style="width: 100%; padding: 8px; background: #9c27b0; border: none; border-radius: 6px; color: #fff; cursor: pointer;">💬 Chat</button>` : ''}
+                            </div>
+                        `;
+                    });
+                }
+                document.getElementById('listaPedidos').innerHTML = html;
+            } catch (error) {
+                console.error(error);
+            }
+        }
+
+        async function cargarRepartidores() {
+            try {
+                const res = await fetch(`${API_URL}/repartidores`);
+                const data = await res.json();
+                
+                let filtrados = data;
+                if (filtroRepartidor === 'activos') {
+                    filtrados = data.filter(r => Boolean(r.gps_activo));
+                } else if (filtroRepartidor === 'aprobados') {
+                    filtrados = data.filter(r => r.estado_aprobacion === 'aprobado');
+                }
+
+                let html = '';
+                if (filtrados.length === 0) {
+                    html = '<div class="no-data">No hay repartidores</div>';
+                } else {
+                    filtrados.forEach(r => {
+                        html += `
+                            <div class="repartidor-card">
+                                <div class="repartidor-header">
+                                    <div>Repartidor #${r.id}</div>
+                                    ${r.gps_activo ? '<div class="online">● Online</div>' : ''}
+                                </div>
+                                <div class="info-row">
+                                    <div><div class="stat-label">Entregas</div><div class="stat-value">${r.total_entregas || 0}</div></div>
+                                    <div><div class="stat-label">Rating</div><div class="stat-value">⭐ ${r.calificacion || 0}</div></div>
+                                </div>
+                                <div class="admin-fila"><span>Estado</span><strong>${r.estado_aprobacion}</strong></div>
+                                ${r.estado_aprobacion === 'pendiente'
+                                    ? `<button class="btn-asignar" onclick="aprobarRepartidor(${r.id})" style="background:#4caf50;">Aprobar repartidor</button>`
+                                    : `<button class="btn-asignar" onclick="actualizarGpsRepartidor(${r.id})" style="background:#7c3aed;">Actualizar GPS</button>`}
+                            </div>
+                        `;
+                    });
+                }
+                document.getElementById('listaRepartidores').innerHTML = html;
+            } catch (error) {
+                console.error(error);
+            }
+        }
+
+        function filtrarRepartidores(filtro) {
+            filtroRepartidor = filtro;
+            document.querySelectorAll('.filtro-btn').forEach(b => b.classList.remove('active'));
+            event.target.classList.add('active');
+            cargarRepartidores();
+        }
+
+        function actualizarGpsRepartidor(repartidorId) {
+            if (!navigator.geolocation) {
+                alert('Este dispositivo no permite obtener ubicación GPS.');
+                return;
+            }
+
+            navigator.geolocation.getCurrentPosition(
+                async posicion => {
+                    try {
+                        const res = await fetch(`${API_URL}/repartidores/${repartidorId}/gps`, {
+                            method: 'PUT',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                lat: posicion.coords.latitude,
+                                lng: posicion.coords.longitude,
+                                activo: true
+                            })
+                        });
+                        const data = await res.json();
+                        if (!res.ok) throw new Error(data.error || 'No se pudo actualizar el GPS');
+
+                        alert('GPS actualizado. Este repartidor ya puede recibir asignaciones automáticas.');
+                        cargarRepartidores();
+                    } catch (error) {
+                        alert('Error: ' + error.message);
+                    }
+                },
+                () => alert('Debes permitir el acceso a la ubicación para activar el GPS.'),
+                { enableHighAccuracy: true, timeout: 10000, maximumAge: 30000 }
+            );
+        }
+
+        async function registrarRepartidor() {
+            const datos = {
+                nombre: document.getElementById('repNombre').value.trim(),
+                telefono: document.getElementById('repTelefono').value.trim(),
+                ci: document.getElementById('repCi').value.trim(),
+                placa: document.getElementById('repPlaca').value.trim(),
+                marca_moto: document.getElementById('repMarcaMoto').value.trim(),
+                modelo_moto: document.getElementById('repModeloMoto').value.trim()
+            };
+
+            if (!datos.nombre || !datos.telefono || !datos.ci || !datos.placa) {
+                alert('Completa nombre, teléfono, CI y placa');
+                return;
+            }
+
+            try {
+                const res = await fetch(`${API_URL}/repartidores/registro`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(datos)
+                });
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.error || 'No se pudo registrar el repartidor');
+
+                alert('Repartidor registrado. Ahora debes aprobarlo.');
+                ['repNombre', 'repTelefono', 'repCi', 'repPlaca', 'repMarcaMoto', 'repModeloMoto']
+                    .forEach(id => document.getElementById(id).value = '');
+                cargarRepartidores();
+            } catch (error) {
+                alert('Error: ' + error.message);
+            }
+        }
+
+        async function aprobarRepartidor(id) {
+            try {
+                const res = await fetch(`${API_URL}/repartidores/${id}/aprobar`, { method: 'PUT' });
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.error || 'No se pudo aprobar el repartidor');
+
+                alert('Repartidor aprobado y disponible para asignaciones.');
+                cargarRepartidores();
+                if (!document.getElementById('seccionAdmin').classList.contains('hidden')) {
+                    cargarPanelAdmin();
+                }
+            } catch (error) {
+                alert('Error: ' + error.message);
+            }
+        }
+
+        function formatearEstado(estado) {
+            return {
+                pendiente: 'Pendiente',
+                asignado: 'Asignado',
+                en_retiro: 'En camino al retiro',
+                en_camino: 'En camino',
+                entregado: 'Entregado',
+                cancelado: 'Cancelado'
+            }[estado] || estado;
+        }
+
+        function opcionesEstado(estadoActual) {
+            const estados = ['pendiente', 'asignado', 'en_retiro', 'en_camino', 'entregado', 'cancelado'];
+            return estados.map(estado =>
+                `<option value="${estado}" ${estado === estadoActual ? 'selected' : ''}>${formatearEstado(estado)}</option>`
+            ).join('');
+        }
+
+        async function cargarPanelAdmin() {
+            try {
+                const [resPedidos, resRepartidores] = await Promise.all([
+                    fetch(`${API_URL}/pedidos`),
+                    fetch(`${API_URL}/repartidores`)
+                ]);
+
+                const pedidos = await resPedidos.json();
+                const repartidores = (await resRepartidores.json())
+                    .filter(repartidor => repartidor.estado_aprobacion === 'aprobado');
+
+                const contar = estado => pedidos.filter(pedido => pedido.estado === estado).length;
+                document.getElementById('adminEstadisticas').innerHTML = `
+                    <div class="admin-estadistica"><span class="stat-label">Pendientes</span><span class="numero">${contar('pendiente')}</span></div>
+                    <div class="admin-estadistica"><span class="stat-label">Asignados</span><span class="numero">${contar('asignado')}</span></div>
+                    <div class="admin-estadistica"><span class="stat-label">En camino</span><span class="numero">${contar('en_camino')}</span></div>
+                    <div class="admin-estadistica"><span class="stat-label">Entregados</span><span class="numero">${contar('entregado')}</span></div>
+                `;
+
+                const pedidosOperativos = pedidos.filter(pedido =>
+                    ['pendiente', 'asignado', 'en_retiro', 'en_camino'].includes(pedido.estado)
+                );
+
+                if (pedidosOperativos.length === 0) {
+                    document.getElementById('listaAdminPedidos').innerHTML = '<div class="no-data">No hay pedidos pendientes de gestionar.</div>';
+                    return;
+                }
+
+                const opcionesRepartidor = repartidores.map(repartidor =>
+                    `<option value="${repartidor.id}">${repartidor.nombre || 'Repartidor'} #${repartidor.id}</option>`
+                ).join('');
+
+                document.getElementById('listaAdminPedidos').innerHTML = pedidosOperativos
+                    .sort((a, b) => b.id - a.id)
+                    .map(pedido => {
+                        const repartidorActual = pedido.repartidor_id || '';
+                        return `
+                            <div class="admin-pedido">
+                                <div class="pedido-header">
+                                    <strong>Pedido #${pedido.id}</strong>
+                                    <span class="estado ${pedido.estado}">${formatearEstado(pedido.estado)}</span>
+                                </div>
+                                <div class="admin-fila"><span>Servicio</span><strong>${pedido.tipo}</strong></div>
+                                <div class="admin-fila"><span>Distancia</span><strong>${pedido.distancia_km || 0} km</strong></div>
+                                <div class="admin-fila"><span>Total</span><strong>Gs. ${Number(pedido.monto || 0).toLocaleString('es-PY')}</strong></div>
+                                <div class="admin-control">
+                                    <label>Repartidor</label>
+                                    <select id="adminRepartidor-${pedido.id}">
+                                        <option value="">Seleccionar repartidor</option>
+                                        ${opcionesRepartidor.replace(`value="${repartidorActual}"`, `value="${repartidorActual}" selected`)}
+                                    </select>
+                                </div>
+                                <div class="admin-control">
+                                    <label>Estado del pedido</label>
+                                    <select id="adminEstado-${pedido.id}">${opcionesEstado(pedido.estado)}</select>
+                                </div>
+                                <div class="admin-acciones">
+                                    <button onclick="asignarPedidoAdmin(${pedido.id})">Asignar</button>
+                                    <button onclick="actualizarEstadoAdmin(${pedido.id})" style="background:#4caf50;">Guardar estado</button>
+                                </div>
+                            </div>
+                        `;
+                    }).join('');
+            } catch (error) {
+                document.getElementById('listaAdminPedidos').innerHTML = '<div class="no-data">No se pudo cargar el panel administrador.</div>';
+                console.error(error);
+            }
+        }
+
+        async function guardarPedidoAdmin(id, estado, repartidorId) {
+            try {
+                const cuerpo = { estado };
+                if (repartidorId) cuerpo.repartidor_id = Number(repartidorId);
+
+                const res = await fetch(`${API_URL}/pedidos/${id}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(cuerpo)
+                });
+
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.error || 'No se pudo actualizar el pedido');
+
+                await cargarPanelAdmin();
+                cargarPedidos();
+            } catch (error) {
+                alert('Error: ' + error.message);
+            }
+        }
+
+        function asignarPedidoAdmin(id) {
+            const repartidorId = document.getElementById(`adminRepartidor-${id}`).value;
+            if (!repartidorId) {
+                alert('Selecciona un repartidor primero');
+                return;
+            }
+            guardarPedidoAdmin(id, 'asignado', repartidorId);
+        }
+
+        function actualizarEstadoAdmin(id) {
+            const estado = document.getElementById(`adminEstado-${id}`).value;
+            const repartidorId = document.getElementById(`adminRepartidor-${id}`).value;
+
+            if ((estado === 'asignado' || estado === 'en_camino') && !repartidorId) {
+                alert('Selecciona un repartidor antes de asignar o iniciar el pedido');
+                return;
+            }
+            guardarPedidoAdmin(id, estado, repartidorId);
+        }
+
+        function abrirChat(pedidoId) {
+            pedidoActivoChat = pedidoId;
+            mostrarSeccion('chat');
+            cargarMensajes();
+        }
+
+        async function cargarMensajes() {
+            if (!pedidoActivoChat) return;
+            
+            try {
+                const res = await fetch(`${API_URL}/pedidos/${pedidoActivoChat}/mensajes`);
+                const msgs = await res.json();
+                
+                let html = '';
+                msgs.forEach(msg => {
+                    const esCliente = msg.usuario_id === usuarioId;
+                    const claseMsg = esCliente ? 'mensaje-cliente' : 'mensaje-repartidor';
+                    html += `
+                        <div class="mensaje ${claseMsg}">
+                            <div>${msg.mensaje}</div>
+                            <div class="mensaje-hora">${msg.timestamp}</div>
+                        </div>
+                    `;
+                });
+                
+                document.getElementById('chatMensajes').innerHTML = html;
+                document.getElementById('chatMensajes').scrollTop = document.getElementById('chatMensajes').scrollHeight;
+            } catch (error) {
+                console.error(error);
+            }
+        }
+
+        async function enviarMensaje() {
+            if (!pedidoActivoChat) return;
+            
+            const input = document.getElementById('inputMensaje');
+            const mensaje = input.value.trim();
+            
+            if (!mensaje) return;
+            
+            try {
+                await fetch(`${API_URL}/pedidos/${pedidoActivoChat}/mensajes`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        usuario_id: usuarioId,
+                        mensaje
+                    })
+                });
+                
+                input.value = '';
+                cargarMensajes();
+            } catch (error) {
+                alert('Error al enviar mensaje');
+            }
+        }
+
+        function mostrarSeccion(seccion) {
+            if (esRepartidor && !['miRuta', 'historial'].includes(seccion)) {
+        alert('Tu cuenta de repartidor solo puede acceder a Mi ruta o Historial.');
+        return;
+    }
+
+            if (['admin', 'repartidores'].includes(seccion) && usuarioRol !== 'admin') {
+                alert('Esta sección es exclusiva para el administrador.');
+                return;
+            }
+
+            document.getElementById('seccionChat').classList.add('hidden');
+            document.getElementById('seccionMapa').classList.add('hidden');
+            document.getElementById('seccionPedidos').classList.add('hidden');
+            document.getElementById('seccionCrear').classList.add('hidden');
+            document.getElementById('seccionRepartidores').classList.add('hidden');
+            document.getElementById('seccionAdmin').classList.add('hidden');
+            document.getElementById('seccionMiRuta').classList.add('hidden');
+            
+            document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+            
+            if (seccion === 'chat') {
+                document.getElementById('seccionChat').classList.remove('hidden');
+                event.target.classList.add('active');
+                if (pedidoActivoChat) {
+                    cargarMensajes();
+                    setInterval(cargarMensajes, 3000);
+                }
+            } else if (seccion === 'mapa') {
+                document.getElementById('seccionMapa').classList.remove('hidden');
+                event.target.classList.add('active');
+                setTimeout(inicializarMapa, 100);
+            } else if (seccion === 'pedidos') {
+                document.getElementById('seccionPedidos').classList.remove('hidden');
+                event.target.classList.add('active');
+                cargarPedidos();
+            } else if (seccion === 'crear') {
+                document.getElementById('seccionCrear').classList.remove('hidden');
+                event.target.classList.add('active');
+                setTimeout(inicializarMapaCrear, 100);
+            } else if (seccion === 'repartidores') {
+                document.getElementById('seccionRepartidores').classList.remove('hidden');
+                event.target.classList.add('active');
+                cargarRepartidores();
+            } else if (seccion === 'admin') {
+                document.getElementById('seccionAdmin').classList.remove('hidden');
+                event.target.classList.add('active');
+                cargarPanelAdmin();
+            } else if (seccion === 'miRuta') {
+                document.getElementById('seccionMiRuta').classList.remove('hidden');
+                event.target.classList.add('active');
+                cargarPanelMiRuta();
+                iniciarSeguimientoGpsRepartidor();
+                iniciarActualizacionMiRuta();
+            } else if (seccion === 'historial') {
+                document.getElementById('seccionHistorial').classList.remove('hidden');
+                event.target.classList.add('active');
+                cargarHistorial();
+            }
+        }
+
+        function mostrarSeccionPorCodigo(seccion) {
+            const boton = document.getElementById('navMiRuta');
+            document.getElementById('seccionChat').classList.add('hidden');
+            document.getElementById('seccionHistorial').classList.add('hidden');
+            document.getElementById('seccionMapa').classList.add('hidden');
+            document.getElementById('seccionPedidos').classList.add('hidden');
+            document.getElementById('seccionCrear').classList.add('hidden');
+            document.getElementById('seccionRepartidores').classList.add('hidden');
+            document.getElementById('seccionAdmin').classList.add('hidden');
+            document.getElementById('seccionMiRuta').classList.add('hidden');
+            document.getElementById('seccionHistorial').classList.add('hidden');
+            document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+
+            if (seccion === 'miRuta') {
+                document.getElementById('seccionMiRuta').classList.remove('hidden');
+                boton.classList.add('active');
+                cargarPanelMiRuta();
+                iniciarSeguimientoGpsRepartidor();
+                iniciarActualizacionMiRuta();
+            }
+        }
+
+        async function obtenerMiRepartidor() {
+            const respuesta = await fetch(`${API_URL}/repartidores`);
+            if (!respuesta.ok) throw new Error('No se pudieron cargar los repartidores');
+
+            const repartidores = await respuesta.json();
+            return repartidores.find(repartidor => Number(repartidor.usuario_id) === Number(usuarioId)) || null;
+        }
+
+        function iniciarActualizacionMiRuta() {
+            if (intervaloMiRuta !== null) return;
+
+            intervaloMiRuta = setInterval(() => {
+                if (esRepartidor && !document.getElementById('seccionMiRuta').classList.contains('hidden')) {
+                    cargarPanelMiRuta(true);
+                }
+            }, 8000);
+        }
+
+        function detenerActualizacionMiRuta() {
+            if (intervaloMiRuta !== null) clearInterval(intervaloMiRuta);
+            intervaloMiRuta = null;
+            pedidosRepartidorConocidos = new Set();
+            primeraCargaMiRuta = true;
+        }
+
+        function avisarPedidoNuevo(pedido) {
+            const mensaje = `¡Nuevo pedido asignado! Pedido #${pedido.id}.`;
+            mostrarNotificacion(mensaje);
+
+            if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
+            if ('Notification' in window && Notification.permission === 'granted') {
+                new Notification('MotoCourier CDE', { body: mensaje });
+            }
+        }
+
+        async function cargarPanelMiRuta(verificarNuevos = false) {
+            const lista = document.getElementById('listaMiRuta');
+            const estadoGps = document.getElementById('estadoGpsRepartidor');
+
+            try {
+                const repartidor = await obtenerMiRepartidor();
+
+                if (!repartidor) {
+                    estadoGps.textContent = 'Esta cuenta no está registrada como repartidor.';
+                    lista.innerHTML = '<div class="no-data">Ingresá con el número de teléfono que fue registrado como repartidor.</div>';
+                    return;
+                }
+
+                if (repartidor.estado_aprobacion !== 'aprobado') {
+                    estadoGps.textContent = 'Tu cuenta está pendiente de aprobación administrativa.';
+                    lista.innerHTML = '<div class="no-data">Todavía no podés recibir pedidos hasta ser aprobado.</div>';
+                    return;
+                }
+
+                estadoGps.textContent = repartidor.gps_activo
+                    ? 'Ubicación GPS: activa. Estás disponible para asignaciones automáticas.'
+                    : 'Ubicación GPS: desactivada. Tocá el botón para activarla.';
+
+                const respuestaPedidos = await fetch(`${API_URL}/pedidos`);
+                if (!respuestaPedidos.ok) throw new Error('No se pudieron cargar los pedidos');
+
+                const pedidos = await respuestaPedidos.json();
+                const misPedidos = pedidos
+                    .filter(pedido => Number(pedido.repartidor_id) === Number(repartidor.id))
+                    .filter(pedido => ['asignado', 'en_retiro', 'en_camino'].includes(pedido.estado))
+                    .sort((a, b) => b.id - a.id);
+
+                const idsActuales = new Set(misPedidos.map(pedido => pedido.id));
+                if (verificarNuevos && !primeraCargaMiRuta) {
+                    misPedidos
+                        .filter(pedido => !pedidosRepartidorConocidos.has(pedido.id))
+                        .forEach(avisarPedidoNuevo);
+                }
+                pedidosRepartidorConocidos = idsActuales;
+                primeraCargaMiRuta = false;
+                pedidosMiRutaActuales = misPedidos;
+
+                if (misPedidos.length === 0) {
+                    lista.innerHTML = '<div class="no-data">No tenés pedidos activos asignados.</div>';
+                    return;
+                }
+
+                lista.innerHTML = misPedidos.map(pedido => {
+                    const distanciaHastaRetiro = calcularDistanciaHastaRetiroKm(
+                        repartidor.ubicacion_lat,
+                        repartidor.ubicacion_lng,
+                        coordenadasPedido(pedido, 'origen')
+                    );
+                    const tarifaServicio = Number(pedido.tarifa_servicio || 0);
+                    const botonAccion = pedido.estado === 'asignado'
+                        ? `<button onclick="actualizarEstadoMiPedido(${pedido.id}, 'en_retiro', null, '${coordenadasPedido(pedido, 'origen')}')">Iniciar viaje al retiro</button>`
+                        : pedido.estado === 'en_retiro'
+                            ? `<button onclick="actualizarEstadoMiPedido(${pedido.id}, 'en_camino', null, '${coordenadasPedido(pedido, 'destino')}')">Paquete retirado</button>`
+                            : `
+                            <select id="pagoFinal-${pedido.id}" style="margin:0; padding:10px; font-size:13px;">
+                                <option value="">¿Cómo abonó el cliente?</option>
+                                <option value="efectivo">Efectivo al repartidor</option>
+                                <option value="transferencia">Transferencia</option>
+                                <option value="qr">Pago por QR</option>
+                            </select>
+                            <button class="btn-entregar" onclick="entregarPedido(${pedido.id})">Marcar como entregado</button>
+                        `;
+
+                    const destinoNavegacion = ['asignado', 'en_retiro'].includes(pedido.estado)
+                        ? coordenadasPedido(pedido, 'origen')
+                        : coordenadasPedido(pedido, 'destino');
+                    const textoNavegacion = ['asignado', 'en_retiro'].includes(pedido.estado)
+                        ? 'Navegar al retiro'
+                        : 'Navegar a la entrega';
+
+                    return `
+                        <div class="pedido-card">
+                            <div class="pedido-header">
+                                <div class="pedido-id">Pedido #${pedido.id}</div>
+                                <div class="estado ${pedido.estado}">${formatearEstado(pedido.estado)}</div>
+                            </div>
+                            <div style="font-size: 13px; color: #cbd5e1; line-height: 1.7;">
+                                <div>📍 <strong>Retiro:</strong> ${pedido.origen_direccion || 'Sin dirección'}</div>
+                                <div>📍 <strong>Entrega:</strong> ${pedido.destino_direccion || 'Sin dirección'}</div>
+                                <div>🛵 <strong>Servicio:</strong> ${pedido.tipo}</div>
+                                <div>📏 <strong>Distancia del servicio:</strong> ${Number(pedido.distancia_km || 0).toLocaleString('es-PY')} km</div>
+                                <div>🧭 <strong>Distancia aprox. hasta el retiro:</strong> ${distanciaHastaRetiro === null ? 'Activá el GPS para calcularla' : `${distanciaHastaRetiro} km`}</div>
+                                <div>🛵 <strong>Tarifa del servicio:</strong> ${tarifaServicio ? `Gs. ${tarifaServicio.toLocaleString('es-PY')}` : 'No disponible'}</div>
+                                <div>💳 <strong>Forma de pago:</strong> ${formatearTipoPago(pedido.tipo_pago)}</div>
+                                <div>💰 <strong>Total a cobrar al cliente:</strong> Gs. ${Number(pedido.monto || 0).toLocaleString('es-PY')}</div>
+                            </div>
+                            <div class="repartidor-acciones">
+                                <button class="btn-gps" onclick="abrirNavegacion('${destinoNavegacion || ''}')">🧭 ${textoNavegacion}</button>
+                                ${botonAccion}
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+            } catch (error) {
+                console.error(error);
+                lista.innerHTML = '<div class="no-data">No se pudo cargar tu ruta. Verificá que el servidor esté encendido.</div>';
+            }
+        }
+
+        async function entregarPedido(id) {
+            const tipoPago = document.getElementById(`pagoFinal-${id}`).value;
+            if (!tipoPago) {
+                alert('Consultá al cliente cómo abonará y seleccioná la forma de pago.');
+                return;
+            }
+            await actualizarEstadoMiPedido(id, 'entregado', tipoPago);
+        }
+
+        async function actualizarEstadoMiPedido(id, estado, tipoPago = null, destinoNavegacion = null) {
+            const texto = {
+                en_retiro: '¿Confirmás que iniciás el viaje hacia el retiro?',
+                en_camino: '¿Confirmás que ya retiraste el paquete?',
+                entregado: '¿Confirmás que el pedido fue entregado?'
+            }[estado] || '¿Confirmás el cambio de estado?';
+            if (!confirm(texto)) return;
+
+            try {
+                const respuesta = await fetch(`${API_URL}/pedidos/${id}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ estado, ...(tipoPago ? { tipo_pago: tipoPago } : {}) })
+                });
+                const data = await respuesta.json();
+                if (!respuesta.ok) throw new Error(data.error || 'No se pudo actualizar el pedido');
+
+                if (estado === 'en_retiro') {
+                    alert('Viaje iniciado. Se abrirá la navegación al punto de retiro.');
+                    abrirNavegacion(destinoNavegacion);
+                } else if (estado === 'en_camino') {
+                    alert('Paquete retirado. Se abrirá la navegación hacia la entrega.');
+                    abrirNavegacion(destinoNavegacion);
+                } else {
+                    const pedido = pedidosMiRutaActuales.find(item => Number(item.id) === Number(id));
+                    const tarifa = Number(pedido?.tarifa_servicio || 0).toLocaleString('es-PY');
+                    const total = Number(pedido?.monto || 0).toLocaleString('es-PY');
+                    alert(
+                        `Pedido entregado.\n\n` +
+                        `Tarifa del servicio: Gs. ${tarifa}\n` +
+                        `Total cobrado al cliente: Gs. ${total}\n` +
+                        `Forma de pago: ${formatearTipoPago(tipoPago || pedido?.tipo_pago)}`
+                    );
+                }
+                cargarPanelMiRuta();
+            } catch (error) {
+                alert(error.message);
+            }
+        }
+
+        function formatearTipoPago(tipoPago) {
+            return {
+                efectivo: 'Efectivo al repartidor',
+                transferencia: 'Transferencia',
+                app: 'Pago por app / billetera',
+                qr: 'Pago por QR',
+                pendiente: 'Se confirma al entregar'
+            }[tipoPago] || 'No especificada';
+        }
+async function cargarHistorial() {
+    const lista = document.getElementById('listaHistorial');
+    lista.innerHTML = '<div class="no-data">Cargando...</div>';
+
+    try {
+        const params = new URLSearchParams();
+
+        const estado = document.getElementById('historialEstado').value;
+        const fechaDesde = document.getElementById('historialFechaDesde').value;
+        const fechaHasta = document.getElementById('historialFechaHasta').value;
+
+        if (estado) params.append('estado', estado);
+        if (fechaDesde) params.append('fecha_desde', fechaDesde);
+        if (fechaHasta) params.append('fecha_hasta', fechaHasta);
+
+        if (usuarioRol === 'admin') {
+            const clienteId = document.getElementById('historialClienteId').value;
+            const repartidorId = document.getElementById('historialRepartidorId').value;
+            if (clienteId) params.append('cliente_id', clienteId);
+            if (repartidorId) params.append('repartidor_id', repartidorId);
+        } else if (esRepartidor) {
+            const repartidor = await obtenerMiRepartidor();
+            if (!repartidor) {
+                lista.innerHTML = '<div class="no-data">No se pudo identificar tu cuenta de repartidor.</div>';
+                return;
+            }
+            params.append('repartidor_id', repartidor.id);
+        } else {
+            params.append('cliente_id', usuarioId);
+        }
+
+        const respuesta = await fetch(`${API_URL}/pedidos/historial?${params.toString()}`);
+        if (!respuesta.ok) throw new Error('No se pudo cargar el historial');
+
+        const pedidos = await respuesta.json();
+
+        if (pedidos.length === 0) {
+            lista.innerHTML = '<div class="no-data">No hay pedidos en el historial con estos filtros.</div>';
+            return;
+        }
+
+        lista.innerHTML = pedidos.map(pedido => {
+            const fecha = new Date(pedido.fecha_creacion).toLocaleString('es-PY', {
+                day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit'
+            });
+
+            return `
+                <div class="pedido-card">
+                    <div class="pedido-header">
+                        <div class="pedido-id">Pedido #${pedido.id}</div>
+                        <div class="estado ${pedido.estado}">${formatearEstado(pedido.estado)}</div>
+                    </div>
+                    <div style="font-size: 13px; color: #cbd5e1; line-height: 1.7;">
+                        <div>🗓️ ${fecha}</div>
+                        <div>🛵 Servicio: ${pedido.tipo}</div>
+                        <div>📏 Distancia: ${pedido.distancia_km ?? 'N/D'} km</div>
+                        <div>💰 Total: Gs. ${Number(pedido.monto || 0).toLocaleString('es-PY')}</div>
+                        <div>💳 Pago: ${formatearTipoPago(pedido.tipo_pago)}</div>
+                        ${usuarioRol === 'admin' ? `<div>👤 Cliente #${pedido.cliente_id} · 🛵 Repartidor #${pedido.repartidor_id ?? 'sin asignar'}</div>` : ''}
+                    </div>
+                </div>
+            `;
+        }).join('');
+    } catch (error) {
+        console.error(error);
+        lista.innerHTML = '<div class="no-data">Error al cargar el historial.</div>';
+    }
+}
+        function coordenadasPedido(pedido, tipo) {
+            const latitud = Number(pedido[`${tipo}_lat`]);
+            const longitud = Number(pedido[`${tipo}_lng`]);
+
+            if (Number.isFinite(latitud) && Number.isFinite(longitud)) {
+                return `${latitud}, ${longitud}`;
+            }
+
+            // Compatibilidad con pedidos anteriores que guardaban coordenadas como texto.
+            return pedido[`${tipo}_direccion`] || '';
+        }
+
+        function calcularDistanciaHastaRetiroKm(latRepartidor, lngRepartidor, origen) {
+            const [latRetiro, lngRetiro] = String(origen || '')
+                .split(',')
+                .map(valor => Number(valor.trim()));
+            const latitudRepartidor = Number(latRepartidor);
+            const longitudRepartidor = Number(lngRepartidor);
+
+            if (![latitudRepartidor, longitudRepartidor, latRetiro, lngRetiro].every(Number.isFinite)) {
+                return null;
+            }
+
+            const aRad = grados => grados * Math.PI / 180;
+            const diferenciaLat = aRad(latRetiro - latitudRepartidor);
+            const diferenciaLng = aRad(lngRetiro - longitudRepartidor);
+            const a = Math.sin(diferenciaLat / 2) ** 2 +
+                Math.cos(aRad(latitudRepartidor)) * Math.cos(aRad(latRetiro)) *
+                Math.sin(diferenciaLng / 2) ** 2;
+            const distancia = 6371 * (2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)));
+
+            return distancia.toFixed(1);
+        }
+
+        function abrirNavegacion(coordenadas) {
+            const valores = String(coordenadas || '').split(',').map(valor => Number(valor.trim()));
+            const [latitud, longitud] = valores;
+
+            if (!Number.isFinite(latitud) || !Number.isFinite(longitud)) {
+                alert('Este pedido no tiene una ubicación válida para navegar.');
+                return;
+            }
+
+            const url = `https://www.google.com/maps/dir/?api=1&destination=${latitud},${longitud}&travelmode=driving`;
+            const nuevaVentana = window.open(url, '_blank', 'noopener');
+            if (!nuevaVentana) window.location.href = url;
+        }
+
+        async function actualizarGpsMiRepartidor() {
+            await iniciarSeguimientoGpsRepartidor();
+        }
+
+        async function iniciarSeguimientoGpsRepartidor() {
+            try {
+                if (seguimientoGpsId !== null) return;
+
+                const repartidor = await obtenerMiRepartidor();
+                if (!repartidor) {
+                    alert('Ingresá con una cuenta registrada como repartidor.');
+                    return;
+                }
+                if (repartidor.estado_aprobacion !== 'aprobado') {
+                    alert('Tu cuenta todavía debe ser aprobada por el administrador.');
+                    return;
+                }
+                if (!navigator.geolocation) {
+                    alert('Este dispositivo no permite obtener ubicación GPS.');
+                    return;
+                }
+
+                document.getElementById('estadoGpsRepartidor').textContent = 'GPS automático: buscando tu ubicación…';
+                seguimientoGpsId = navigator.geolocation.watchPosition(async posicion => {
+                    try {
+                        const respuesta = await fetch(`${API_URL}/repartidores/${repartidor.id}/gps`, {
+                            method: 'PUT',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                lat: posicion.coords.latitude,
+                                lng: posicion.coords.longitude,
+                                activo: true
+                            })
+                        });
+                        const data = await respuesta.json();
+                        if (!respuesta.ok) throw new Error(data.error || 'No se pudo guardar el GPS');
+
+                        document.getElementById('estadoGpsRepartidor').textContent =
+                            `GPS automático activo. Última actualización: ${new Date().toLocaleTimeString('es-PY')}.`;
+                    } catch (error) {
+                        console.error(error);
+                        document.getElementById('estadoGpsRepartidor').textContent =
+                            'GPS automático: no se pudo guardar la ubicación.';
+                    }
+                }, error => {
+                    document.getElementById('estadoGpsRepartidor').textContent = 'Ubicación GPS: no disponible.';
+                    alert('No se pudo obtener tu ubicación. Permití el acceso a la ubicación en el navegador.');
+                    console.error(error);
+                    detenerSeguimientoGpsRepartidor();
+                }, { enableHighAccuracy: true, timeout: 15000, maximumAge: 15000 });
+            } catch (error) {
+                alert(error.message);
+            }
+        }
+
+        function detenerSeguimientoGpsRepartidor() {
+            if (seguimientoGpsId !== null && navigator.geolocation) {
+                navigator.geolocation.clearWatch(seguimientoGpsId);
+            }
+            seguimientoGpsId = null;
+        }
+
+        function actualizarInstruccionMapa() {
+            const instruccion = document.getElementById('instruccionMapa');
+
+            if (modoEdicionPunto === 'retiro') {
+                instruccion.textContent = 'Haz clic en el mapa para elegir el nuevo punto de RETIRO.';
+            } else if (modoEdicionPunto === 'entrega') {
+                instruccion.textContent = 'Haz clic en el mapa para elegir el nuevo punto de ENTREGA.';
+            } else if (!puntoRetiro) {
+                instruccion.textContent = 'Haz clic en el mapa para marcar el PUNTO DE RETIRO.';
+            } else if (!puntoEntrega) {
+                instruccion.textContent = 'Haz clic en el mapa para marcar el PUNTO DE ENTREGA.';
+            } else {
+                instruccion.textContent = 'Puntos listos. Puedes editarlos o limpiar el mapa si necesitas corregirlos.';
+            }
+        }
+
+        function colocarPunto(tipo, latlng) {
+            const esRetiro = tipo === 'retiro';
+            const ubicacion = { lat: latlng.lat, lng: latlng.lng };
+            const icono = L.icon({
+                iconUrl: esRetiro
+                    ? 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-red.png'
+                    : 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-green.png',
+                shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
+                iconSize: [25, 41],
+                shadowSize: [41, 41]
+            });
+
+            if (esRetiro) {
+                puntoRetiro = ubicacion;
+                if (marcadorRetiro) mapaCrear.removeLayer(marcadorRetiro);
+                marcadorRetiro = L.marker([ubicacion.lat, ubicacion.lng], { icon: icono })
+                    .addTo(mapaCrear)
+                    .bindPopup('RETIRO');
+                document.getElementById('puntoRetiro').classList.remove('hidden');
+            } else {
+                puntoEntrega = ubicacion;
+                if (marcadorEntrega) mapaCrear.removeLayer(marcadorEntrega);
+                marcadorEntrega = L.marker([ubicacion.lat, ubicacion.lng], { icon: icono })
+                    .addTo(mapaCrear)
+                    .bindPopup('ENTREGA');
+                document.getElementById('puntoEntrega').classList.remove('hidden');
+            }
+
+            modoEdicionPunto = null;
+            actualizarInstruccionMapa();
+
+            if (puntoRetiro && puntoEntrega) {
+                setTimeout(calcularTarifa, 300);
+            }
+        }
+
+        function editarPunto(tipo) {
+            modoEdicionPunto = tipo;
+            actualizarInstruccionMapa();
+            mapaCrear.getContainer().scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+
+        function limpiarPuntos() {
+            puntoRetiro = null;
+            puntoEntrega = null;
+            modoEdicionPunto = null;
+
+            if (marcadorRetiro) mapaCrear.removeLayer(marcadorRetiro);
+            if (marcadorEntrega) mapaCrear.removeLayer(marcadorEntrega);
+
+            marcadorRetiro = null;
+            marcadorEntrega = null;
+            document.getElementById('puntoRetiro').classList.add('hidden');
+            document.getElementById('puntoEntrega').classList.add('hidden');
+            document.getElementById('desgloseTarifa').classList.add('hidden');
+            actualizarInstruccionMapa();
+        }
+
+        function inicializarMapaCrear() {
+            if (mapaCrear) return;
+
+            const ciudadDelEste = [-25.5095, -54.6132];
+            
+            mapaCrear = L.map('mapaCrear').setView(ciudadDelEste, 14);
+            
+            L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+                attribution: '&copy; OpenStreetMap contributors &copy; CARTO',
+                subdomains: 'abcd',
+                maxZoom: 20
+            }).addTo(mapaCrear);
+
+            mapaCrear.on('click', function(e) {
+                const tipo = modoEdicionPunto || (!puntoRetiro ? 'retiro' : (!puntoEntrega ? 'entrega' : null));
+
+                if (!tipo) {
+                    alert('Usa Editar retiro, Editar entrega o Limpiar para modificar los puntos.');
+                    return;
+                }
+
+                colocarPunto(tipo, e.latlng);
+            });
+
+            actualizarInstruccionMapa();
+        }
+
+        function inicializarMapa() {
+            if (mapa) return;
+
+            const ciudadDelEste = [-25.5095, -54.6132];
+            
+            mapa = L.map('mapa').setView(ciudadDelEste, 14);
+            
+            L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+                attribution: '&copy; OpenStreetMap contributors &copy; CARTO',
+                subdomains: 'abcd',
+                maxZoom: 20
+            }).addTo(mapa);
+
+            L.marker(ciudadDelEste, {
+                title: 'Tu ubicación'
+            }).addTo(mapa).bindPopup('📍 Tu ubicación');
+
+            actualizarUbicacionRepartidor();
+            setInterval(actualizarUbicacionRepartidor, 10000);
+        }
+
+        async function actualizarUbicacionRepartidor() {
+            try {
+                const res = await fetch(`${API_URL}/pedidos`);
+                const pedidos = await res.json();
+                const misPedidos = pedidos.filter(p => p.cliente_id === usuarioId);
+                
+                if (misPedidos.length === 0) {
+                    document.getElementById('mapaDetalles').innerHTML = 'No hay pedidos asignados';
+                    return;
+                }
+
+                const pedidoAsignado = misPedidos
+                    .filter(p => p.repartidor_id && ['asignado', 'en_retiro', 'en_camino'].includes(p.estado))
+                    .sort((a, b) => b.id - a.id)[0];
+                
+                if (!pedidoAsignado) {
+                    document.getElementById('mapaDetalles').innerHTML = 'Esperando asignación...';
+                    return;
+                }
+
+                const resRepartidores = await fetch(`${API_URL}/repartidores`);
+                const repartidores = await resRepartidores.json();
+                const repartidor = repartidores.find(r => Number(r.id) === Number(pedidoAsignado.repartidor_id));
+
+                if (!repartidor || !repartidor.gps_activo || repartidor.ubicacion_lat === null || repartidor.ubicacion_lng === null) {
+                    document.getElementById('mapaDetalles').innerHTML = 'El repartidor todavía no activó su GPS.';
+                    return;
+                }
+
+                const baseLatitude = Number(repartidor.ubicacion_lat);
+                const baseLongitude = Number(repartidor.ubicacion_lng);
+
+                if (marcadorRepartidor) {
+                    mapa.removeLayer(marcadorRepartidor);
+                }
+
+                marcadorRepartidor = L.marker([baseLatitude, baseLongitude], {
+                    title: `Repartidor #${pedidoAsignado.repartidor_id}`
+                }).addTo(mapa);
+
+                marcadorRepartidor.bindPopup(`🛵 Repartidor #${pedidoAsignado.repartidor_id}<br>Pedido #${pedidoAsignado.id}`);
+                marcadorRepartidor.openPopup();
+                mapa.setView([baseLatitude, baseLongitude], 15);
+
+                document.getElementById('mapaDetalles').innerHTML = `
+                    🛵 Repartidor #${pedidoAsignado.repartidor_id} en camino<br>
+                    Pedido #${pedidoAsignado.id} - ${pedidoAsignado.estado}
+                `;
+            } catch (error) {
+                console.error(error);
+            }
+        }
+
+        function logout() {
+            detenerSeguimientoGpsRepartidor();
+            detenerActualizacionMiRuta();
+            usuarioId = null;
+            usuarioTelefono = null;
+            usuarioRol = 'cliente';
+            esRepartidor = false;
+            document.getElementById('loginScreen').classList.remove('hidden');
+            document.getElementById('dashboardScreen').classList.add('hidden');
+            document.getElementById('telefono').value = '';
+            document.getElementById('codigo').value = '';
+            paso1();
+        }
+
+        function mostrarNotificacion(mensaje) {
+            const notif = document.createElement('div');
+            notif.className = 'notificacion';
+            notif.textContent = mensaje;
+            document.getElementById('notificaciones').appendChild(notif);
+            alert(mensaje);
+            
+            setTimeout(() => notif.remove(), 5000);
+        }
+
+        function iniciarNotificaciones() {
+            setInterval(async () => {
+                if (usuarioId) {
+                    try {
+                        const res = await fetch(`${API_URL}/pedidos`);
+                        const pedidos = await res.json();
+                        const misPedidos = pedidos.filter(p => p.cliente_id === usuarioId);
+                        
+                        misPedidos.forEach(p => {
+                            if (p.estado === 'asignado' && !notificacionesVistas.includes(p.id)) {
+                                notificacionesVistas.push(p.id);
+                                mostrarNotificacion(`🔔 ¡Tu pedido #${p.id} fue asignado!`);
+                            }
+                        });
+                    } catch (error) {
+                        console.error(error);
+                    }
+                }
+            }, 5000);
+        }
+    </script>
+    <!-- Script de liquidaciones (admin y repartidores) -->
+    <script src="js/liquidaciones-frontend.js"></script>
 </body>
 </html>

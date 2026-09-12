@@ -41,11 +41,7 @@
             <select id="liquidacionRepartidor"><option value="">Cargando repartidores...</option></select>
           </div>
           <div class="form-group">
-            <label class="label">Desde</label>
-            <input type="date" id="liquidacionDesde">
-          </div>
-          <div class="form-group">
-            <label class="label">Hasta</label>
+            <label class="label">Liquidar hasta</label>
             <input type="date" id="liquidacionHasta" value="${hoy}">
           </div>
           <button onclick="consultarResumenLiquidacion()">Calcular liquidación</button>
@@ -130,12 +126,11 @@
 
   window.consultarResumenLiquidacion = async function consultarResumenLiquidacion() {
     const repartidorId = document.getElementById('liquidacionRepartidor').value;
-    const fechaInicio = document.getElementById('liquidacionDesde').value;
-    const fechaFin = document.getElementById('liquidacionHasta').value;
+    const fechaHasta = document.getElementById('liquidacionHasta').value;
     const destino = document.getElementById('resumenLiquidacion');
 
-    if (!repartidorId || !fechaInicio || !fechaFin) {
-      alert('Seleccioná repartidor y ambas fechas.');
+    if (!repartidorId) {
+      alert('Seleccioná un repartidor.');
       return;
     }
 
@@ -143,8 +138,7 @@
     try {
       const params = new URLSearchParams({
         repartidor_id: repartidorId,
-        fecha_inicio: fechaInicio,
-        fecha_fin: fechaFin
+        fecha_hasta: fechaHasta ? `${fechaHasta} 23:59:59` : ''
       });
       const respuesta = await fetch(`${API_URL}/liquidaciones/resumen?${params}`);
       const resumen = await respuesta.json();
@@ -154,7 +148,7 @@
       const empresaPaga = resumen.direccion_pago === 'empresa_paga';
       destino.innerHTML = `
         <div class="card">
-          <h3 style="margin-bottom:12px;">Resumen del período</h3>
+          <h3 style="margin-bottom:12px;">Resumen (pedidos pendientes de liquidar)</h3>
           <div class="admin-fila"><span>Pedidos entregados</span><strong>${resumen.total_servicios}</strong></div>
           <div class="admin-fila"><span>Total de tarifas</span><strong>${formatoGs(resumen.total_tarifas)}</strong></div>
           <div class="admin-fila"><span>Repartidor (80% de tarifas)</span><strong style="color:#4caf50;">${formatoGs(resumen.monto_repartidor)}</strong></div>
@@ -166,7 +160,7 @@
               <strong style="color:${empresaPaga ? '#4caf50' : '#f87171'};">${formatoGs(resumen.monto_neto)}</strong>
             </div>
           </div>
-          ${resumen.total_servicios ? '<button onclick="crearLiquidacion()">Crear liquidación pendiente</button>' : '<div class="no-data" style="padding:16px;">No hay pedidos entregados en este período.</div>'}
+          ${resumen.total_servicios ? '<button onclick="crearLiquidacion()">Crear liquidación pendiente</button>' : '<div class="no-data" style="padding:16px;">No hay pedidos pendientes de liquidar para este repartidor.</div>'}
         </div>
       `;
     } catch (error) {
@@ -184,8 +178,7 @@
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           repartidor_id: resumenActual.repartidor_id,
-          fecha_inicio: resumenActual.fecha_inicio,
-          fecha_fin: resumenActual.fecha_fin
+          fecha_hasta: resumenActual.fecha_fin
         })
       });
       const data = await respuesta.json();
