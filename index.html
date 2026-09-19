@@ -130,6 +130,12 @@
                         <div class="instruccion" id="instruccionMapa">
                             📍 Haz click en el mapa para marcar PUNTO DE RETIRO (🔴 rojo)
                         </div>
+                        <div class="form-group buscador-direccion">
+                            <input id="buscarDireccionRetiro" type="text" autocomplete="off"
+                                placeholder="🔎 Buscar dirección de retiro (opcional)"
+                                oninput="buscarDireccion('retiro')">
+                            <div id="sugerenciasRetiro" class="sugerencias-direccion hidden"></div>
+                        </div>
                         <div id="mapaCrear"></div>
                         <div id="puntoRetiro" class="punto-marcado hidden">
                             ✅ Punto de RETIRO marcado
@@ -139,9 +145,15 @@
                             <input id="referenciaRetiro" type="text" maxlength="255"
                                 placeholder="Ej.: Tienda de Candy, Av. San Blas y Monseñor Rodríguez">
                         </div>
-                        
+
                         <div class="instruccion" style="margin-top: 16px;">
                             📍 Haz click en el mapa para marcar PUNTO DE ENTREGA (🟢 verde)
+                        </div>
+                        <div class="form-group buscador-direccion">
+                            <input id="buscarDireccionEntrega" type="text" autocomplete="off"
+                                placeholder="🔎 Buscar dirección de entrega (opcional)"
+                                oninput="buscarDireccion('entrega')">
+                            <div id="sugerenciasEntrega" class="sugerencias-direccion hidden"></div>
                         </div>
                         <div id="puntoEntrega" class="punto-marcado hidden">
                             ✅ Punto de ENTREGA marcado
@@ -1706,6 +1718,83 @@ async function cargarHistorial() {
             } else {
                 instruccion.textContent = 'Puntos listos. Puedes editarlos o limpiar el mapa si necesitas corregirlos.';
             }
+        }
+
+        // Buscador de direcciones gratuito (Nominatim/OpenStreetMap, sin clave de
+        // API). Muestra sugerencias mientras el usuario escribe y, al elegir una,
+        // marca el punto en el mapa igual que si hubiera tocado ahí directamente.
+        let temporizadorBusquedaDireccion = {};
+        let sugerenciasDireccionActuales = [];
+
+        function buscarDireccion(tipo) {
+            const idCampo = tipo === 'retiro' ? 'buscarDireccionRetiro' : 'buscarDireccionEntrega';
+            const idLista = tipo === 'retiro' ? 'sugerenciasRetiro' : 'sugerenciasEntrega';
+            const consulta = document.getElementById(idCampo).value.trim();
+            const lista = document.getElementById(idLista);
+
+            clearTimeout(temporizadorBusquedaDireccion[tipo]);
+
+            if (consulta.length < 3) {
+                lista.innerHTML = '';
+                lista.classList.add('hidden');
+                return;
+            }
+
+            temporizadorBusquedaDireccion[tipo] = setTimeout(async () => {
+                try {
+                    // Caja alrededor de Ciudad del Este y alrededores, para priorizar
+                    // resultados de la zona antes que de cualquier otro lugar del país.
+                    const params = new URLSearchParams({
+                        format: 'json',
+                        q: consulta,
+                        viewbox: '-54.75,-25.40,-54.50,-25.60',
+                        bounded: '1',
+                        countrycodes: 'py',
+                        limit: '5'
+                    });
+                    const respuesta = await fetch(`https://nominatim.openstreetmap.org/search?${params}`);
+                    const resultados = await respuesta.json();
+                    mostrarSugerenciasDireccion(tipo, resultados);
+                } catch (error) {
+                    console.error('No se pudo buscar la dirección', error);
+                    lista.innerHTML = '<div class="sugerencia-vacia">No se pudo buscar. Probá marcar directo en el mapa.</div>';
+                    lista.classList.remove('hidden');
+                }
+            }, 450);
+        }
+
+        function mostrarSugerenciasDireccion(tipo, resultados) {
+            const idLista = tipo === 'retiro' ? 'sugerenciasRetiro' : 'sugerenciasEntrega';
+            const lista = document.getElementById(idLista);
+
+            if (!resultados.length) {
+                lista.innerHTML = '<div class="sugerencia-vacia">Sin resultados. Probá con otro nombre o marcá directo en el mapa.</div>';
+                lista.classList.remove('hidden');
+                return;
+            }
+
+            sugerenciasDireccionActuales = resultados;
+            lista.innerHTML = resultados.map((resultado, indice) =>
+                `<div class="sugerencia-item" onclick="elegirSugerenciaDireccion('${tipo}', ${indice})">${resultado.display_name}</div>`
+            ).join('');
+            lista.classList.remove('hidden');
+        }
+
+        function elegirSugerenciaDireccion(tipo, indice) {
+            const resultado = sugerenciasDireccionActuales[indice];
+            if (!resultado) return;
+
+            if (!mapaCrear) inicializarMapaCrear();
+            colocarPunto(tipo, { lat: Number(resultado.lat), lng: Number(resultado.lon) });
+            mapaCrear.setView([Number(resultado.lat), Number(resultado.lon)], 16);
+
+            const idCampo = tipo === 'retiro' ? 'buscarDireccionRetiro' : 'buscarDireccionEntrega';
+            document.getElementById(idCampo).value = resultado.display_name;
+
+            const idLista = tipo === 'retiro' ? 'sugerenciasRetiro' : 'sugerenciasEntrega';
+            const lista = document.getElementById(idLista);
+            lista.innerHTML = '';
+            lista.classList.add('hidden');
         }
 
         function colocarPunto(tipo, latlng) {
