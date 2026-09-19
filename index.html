@@ -3,135 +3,21 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>🛵 MotoCourier CDE</title>
+    <title>JMMotocourier</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" />
     <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
-    <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #0f1729; color: #fff; }
-        .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-        
-        .login-screen { display: flex; flex-direction: column; justify-content: center; min-height: 100vh; }
-        .logo { font-size: 48px; text-align: center; margin-bottom: 10px; }
-        .title { font-size: 24px; text-align: center; color: #8899bb; margin-bottom: 40px; }
-        .card { background: #1a2540; padding: 30px; border-radius: 16px; }
-        .form-group { margin-bottom: 20px; }
-        .label { display: block; color: #8899bb; font-size: 14px; margin-bottom: 8px; }
-        input, select { width: 100%; padding: 12px; background: #0f1729; border: 1px solid #444; border-radius: 8px; color: #fff; font-size: 16px; }
-        input::placeholder, select::placeholder { color: #666; }
-        button { width: 100%; padding: 12px; background: #2563eb; color: #fff; border: none; border-radius: 8px; font-size: 16px; font-weight: bold; cursor: pointer; margin-top: 8px; }
-        button:hover { background: #1d4ed8; }
-        .hidden { display: none !important; }
-
-        /* Respaldo visual para Compra por Encargo */
-        .form-group:has(#tipoServicio option[value="encargo"]:checked) + #grupoMontoPedido {
-            display: block !important;
-        }
-        .form-group:has(#tipoServicio option[value="encargo"]:checked) ~ #desgloseTarifa #filaMontoCompra,
-        .form-group:has(#tipoServicio option[value="encargo"]:checked) ~ #desgloseTarifa #filaComision {
-            display: flex !important;
-        }
-        
-        .dashboard { display: flex; flex-direction: column; min-height: 100vh; }
-        .header { background: #1a2540; padding: 20px; display: flex; justify-content: space-between; align-items: center; }
-        .header-info h2 { font-size: 24px; margin-bottom: 4px; }
-        .header-info p { font-size: 12px; color: #8899bb; }
-        .btn-logout { padding: 8px 16px; background: #f44336; border: none; color: #fff; border-radius: 6px; cursor: pointer; }
-        
-        .nav-buttons { display: flex; gap: 8px; padding: 12px; background: #1a2540; overflow-x: auto; }
-        .nav-btn { flex: 1; padding: 10px; background: #2563eb; color: #fff; border: none; border-radius: 8px; cursor: pointer; font-size: 11px; white-space: nowrap; }
-        .nav-btn.active { background: #4caf50; }
-        
-        .content { flex: 1; overflow-y: auto; padding: 16px; }
-        
-        #mapaCrear { width: 100%; height: 350px; border-radius: 8px; margin-bottom: 16px; border: 2px solid #444; }
-        .mapa-info { background: #1a2540; padding: 12px; border-radius: 8px; margin-bottom: 12px; font-size: 12px; color: #8899bb; }
-        
-        #mapa { width: 100%; height: 400px; border-radius: 8px; margin-bottom: 16px; }
-        
-        .chat-container { display: flex; flex-direction: column; height: 500px; background: #1a2540; border-radius: 8px; }
-        .chat-mensajes { flex: 1; overflow-y: auto; padding: 16px; display: flex; flex-direction: column; gap: 12px; }
-        .mensaje { padding: 10px 12px; border-radius: 8px; max-width: 80%; word-wrap: break-word; }
-        .mensaje-cliente { align-self: flex-end; background: #2563eb; }
-        .mensaje-repartidor { align-self: flex-start; background: #4caf50; }
-        .mensaje-hora { font-size: 10px; color: #8899bb; }
-        .chat-input { padding: 12px; display: flex; gap: 8px; border-top: 1px solid #0f1729; }
-        .chat-input input { flex: 1; padding: 8px; background: #0f1729; border: 1px solid #444; }
-        .chat-input button { flex: 0.2; padding: 8px; }
-        
-        .notificacion { background: #4caf50; padding: 12px; border-radius: 8px; margin-bottom: 12px; }
-        
-        .pedido-card { background: #1a2540; padding: 16px; border-radius: 8px; margin-bottom: 12px; border-left: 4px solid #2563eb; }
-        .pedido-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
-        .pedido-id { font-weight: bold; }
-        .estado { padding: 4px 12px; border-radius: 20px; font-size: 11px; }
-        .estado.pendiente { background: #ff9800; }
-        .estado.asignado { background: #2196f3; }
-        .estado.en_retiro { background: #f59e0b; }
-        .estado.en_camino { background: #4caf50; }
-        .estado.entregado { background: #8bc34a; }
-        
-        .filtros { display: flex; gap: 8px; padding: 12px; background: #0f1729; }
-        .filtro-btn { padding: 8px 16px; background: #1a2540; border: 1px solid #444; color: #8899bb; border-radius: 20px; cursor: pointer; font-size: 12px; }
-        .filtro-btn.active { background: #2563eb; color: #fff; border-color: #2563eb; }
-        
-        .repartidor-card { background: #1a2540; padding: 16px; border-radius: 8px; margin-bottom: 12px; }
-        .repartidor-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
-        .online { color: #4caf50; font-weight: bold; }
-        .info-row { display: flex; justify-content: space-around; margin-bottom: 12px; padding-bottom: 12px; border-bottom: 1px solid #0f1729; text-align: center; }
-        .stat-label { font-size: 12px; color: #8899bb; }
-        .stat-value { font-size: 16px; font-weight: bold; color: #fff; }
-        
-        .btn-asignar { width: 100%; padding: 10px; background: #2563eb; border: none; color: #fff; border-radius: 6px; cursor: pointer; font-size: 12px; }
-        .admin-titulo { font-size: 20px; margin-bottom: 4px; }
-        .admin-subtitulo { color: #8899bb; font-size: 13px; margin-bottom: 16px; }
-        .admin-estadisticas { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-bottom: 16px; }
-        .admin-estadistica { background: #1a2540; padding: 14px; border-radius: 10px; border-left: 4px solid #2563eb; }
-        .admin-estadistica .numero { display: block; font-size: 24px; font-weight: bold; margin-top: 4px; }
-        .admin-pedido { background: #1a2540; padding: 16px; border-radius: 10px; margin-bottom: 12px; border-left: 4px solid #2563eb; }
-        .admin-fila { display: flex; justify-content: space-between; gap: 12px; margin: 8px 0; font-size: 13px; color: #cbd5e1; }
-        .admin-control { margin-top: 12px; }
-        .admin-control label { display: block; font-size: 12px; color: #8899bb; margin-bottom: 5px; }
-        .admin-control select { padding: 9px; font-size: 13px; }
-        .admin-acciones { display: flex; gap: 8px; margin-top: 10px; }
-        .admin-acciones button { margin: 0; padding: 10px; font-size: 12px; }
-        .registro-repartidor { background: #1a2540; padding: 16px; border-radius: 10px; margin-bottom: 16px; }
-        .registro-repartidor h3 { font-size: 17px; margin-bottom: 4px; }
-        .registro-repartidor p { color: #8899bb; font-size: 12px; margin-bottom: 14px; }
-        .registro-repartidor-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-        .registro-repartidor-grid .form-group { margin-bottom: 0; }
-        .registro-repartidor-grid input { padding: 10px; font-size: 14px; }
-        .repartidor-panel { background: #1a2540; padding: 16px; border-radius: 10px; margin-bottom: 16px; }
-        .repartidor-panel h3 { font-size: 20px; margin-bottom: 4px; }
-        .repartidor-panel p { color: #8899bb; font-size: 13px; margin-bottom: 14px; }
-        .gps-estado { background: #0f1729; color: #93c5fd; padding: 10px; border-radius: 8px; font-size: 12px; margin-bottom: 12px; }
-        .repartidor-acciones { display: flex; gap: 8px; margin-top: 12px; }
-        .repartidor-acciones button { margin: 0; padding: 10px; font-size: 13px; }
-        .btn-entregar { background: #4caf50; }
-        .btn-gps { background: #0ea5e9; margin-top: 0; }
-        
-        .no-data { text-align: center; color: #8899bb; padding: 40px; }
-        
-        .desglose-box { background: #0f1729; padding: 16px; border-radius: 8px; margin-bottom: 16px; }
-        .desglose-row { display: flex; justify-content: space-between; font-size: 14px; color: #8899bb; margin-bottom: 8px; }
-        .desglose-total { border-top: 1px solid #444; padding-top: 12px; margin-top: 12px; font-size: 16px; color: #2196f3; font-weight: bold; }
-        
-        .instruccion { background: #1a2540; padding: 12px; border-radius: 8px; margin-bottom: 12px; font-size: 13px; color: #4caf50; border-left: 3px solid #4caf50; }
-        .punto-marcado { background: #2196f3; padding: 12px; border-radius: 8px; margin-bottom: 12px; font-size: 13px; color: #fff; }
-        .acciones-puntos { display: flex; gap: 8px; margin: 12px 0 16px; }
-        .acciones-puntos button { width: auto; flex: 1; margin: 0; padding: 10px 8px; font-size: 12px; }
-        .btn-editar-punto { background: #475569; }
-        .btn-editar-punto:hover { background: #64748b; }
-        .btn-limpiar-puntos { background: #b91c1c; }
-        .btn-limpiar-puntos:hover { background: #dc2626; }
-    </style>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Poppins:wght@600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="css/estilos.css">
 </head>
 <body>
+    <div class="bg-decor" aria-hidden="true"></div>
     <div class="container">
         <!-- LOGIN SCREEN -->
         <div id="loginScreen" class="login-screen">
             <div class="logo">🛵</div>
-            <div class="title">MotoCourier CDE</div>
+            <div class="title">JMMotocourier</div>
             <div class="card">
                 <div id="paso1">
                     <div class="form-group">
@@ -141,7 +27,8 @@
                             <input id="telefono" type="tel" inputmode="numeric" placeholder="Ej.: 984768500" maxlength="9">
                         </div>
                     </div>
-                    <button onclick="enviarCodigo()">Enviar código</button>
+                    <button onclick="continuarConTelefono()">Iniciar sesión</button>
+                    <button onclick="registrarmeConTelefono()" style="background: var(--color-bg-elevated-2); border: 1px solid var(--color-border-strong); color: var(--text-primary);">Registrarme</button>
                 </div>
                 <div id="paso2" class="hidden">
                     <div class="form-group">
@@ -151,6 +38,41 @@
                     <button onclick="verificarCodigo()">Verificar</button>
                     <button onclick="paso1()" style="background: #666;">← Cambiar número</button>
                 </div>
+                <div id="pasoPassword" class="hidden">
+                    <div class="form-group">
+                        <label class="label">Ingresá tu contraseña</label>
+                        <input id="passwordLogin" type="password" placeholder="••••••••"
+                            onkeydown="if(event.key==='Enter') iniciarSesionConPassword();">
+                    </div>
+                    <button onclick="iniciarSesionConPassword()">Ingresar</button>
+                    <button onclick="paso1()" style="background: #666;">← Cambiar número</button>
+                    <button onclick="olvidoPassword()" style="background: transparent; box-shadow: none; color: var(--text-secondary); text-decoration: underline; font-weight: 500;">¿Olvidaste tu contraseña?</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- REGISTRO / CONTRASEÑA DE CLIENTE (primera vez, o recuperación) -->
+        <div id="registroClienteScreen" class="login-screen hidden">
+            <div class="logo" id="registroLogo">👋</div>
+            <div class="title" id="registroTitulo">¡Bienvenido!</div>
+            <div class="card">
+                <p id="registroSubtitulo" style="color: var(--text-secondary); font-size: 14px; margin-bottom: 20px;">
+                    Contanos tu nombre y creá una contraseña para tu cuenta. Es personal e intransferible.
+                </p>
+                <div class="form-group">
+                    <label class="label" for="registroNombreCliente">Nombre completo</label>
+                    <input id="registroNombreCliente" type="text" maxlength="100" placeholder="Ej.: María González">
+                </div>
+                <div class="form-group">
+                    <label class="label" for="registroPassword">Contraseña</label>
+                    <input id="registroPassword" type="password" maxlength="72" placeholder="Mínimo 6 caracteres">
+                </div>
+                <div class="form-group">
+                    <label class="label" for="registroPasswordConfirmar">Confirmar contraseña</label>
+                    <input id="registroPasswordConfirmar" type="password" maxlength="72" placeholder="Repetí la contraseña"
+                        onkeydown="if(event.key==='Enter') completarRegistroCliente();">
+                </div>
+                <button onclick="completarRegistroCliente()">Guardar y continuar</button>
             </div>
         </div>
 
@@ -158,7 +80,7 @@
         <div id="dashboardScreen" class="dashboard hidden">
             <div class="header">
                 <div class="header-info">
-                    <h2>MotoCourier CDE</h2>
+                    <h2>JMMotocourier</h2>
                     <p id="usuarioTel">+595 973802026</p>
                 </div>
                 <button class="btn-logout" onclick="logout()">Salir</button>
@@ -269,7 +191,7 @@
         </div>
 
         <div class="desglose-row">
-            <span>Tarifa MotoCourier:</span>
+            <span>Tarifa JMMotocourier:</span>
             <span id="desgloseTarifaMoto" style="color: #4caf50;">0</span>
         </div>
 
@@ -374,11 +296,13 @@
         // Configuración de API_URL
         // En producción (Vercel): apunta a Render
         // En desarrollo: apunta a localhost
-        const API_URL = window.location.hostname === 'localhost' 
-            ? 'http://localhost:5000/api'
-            : 'https://motoflow-backend.onrender.com/api';
+        const API_URL = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+    ? 'http://localhost:5000/api'
+    : 'https://motoflow-backend.onrender.com/api';
         let usuarioId = null;
         let usuarioTelefono = null;
+        let enRecuperacionPassword = false;
+        let modoRegistroDirecto = false;
         let filtroRepartidor = 'todos';
         let notificacionesVistas = [];
         let mapa = null;
@@ -656,6 +580,124 @@ async function crearPedidoConTarifa() {
     }
 }
 
+        // Primer paso del login: según si ese número ya tiene contraseña,
+        // pide la contraseña directamente o manda el código de verificación.
+        async function continuarConTelefono() {
+            const telefono = document.getElementById('telefono').value;
+            if (!telefono || telefono.length < 9) {
+                alert('Ingresa un número válido');
+                return;
+            }
+
+            try {
+                const res = await fetch(`${API_URL}/auth/check-phone`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ telefono })
+                });
+                const data = await res.json();
+
+                if (!data.existe) {
+                    alert('Ese número todavía no está registrado. Tocá "Registrarme" para crear tu cuenta.');
+                    return;
+                }
+
+                if (data.tiene_password) {
+                    mostrarPasoPassword();
+                } else {
+                    // Cuenta existente sin contraseña (admin/repartidor, o un
+                    // cliente de antes de esta función): sigue entrando con código.
+                    await enviarCodigo();
+                }
+            } catch (error) {
+                alert('Error: ' + error.message);
+            }
+        }
+
+        // Camino explícito para quien todavía no tiene cuenta: si el número ya
+        // está registrado, lo mandamos a iniciar sesión (con contraseña o
+        // código, según corresponda). Si es realmente nuevo, no hace falta
+        // pasar por el código de verificación (hoy es fijo, no es un SMS real):
+        // vamos directo al formulario de nombre + contraseña.
+        async function registrarmeConTelefono() {
+            const telefono = document.getElementById('telefono').value;
+            if (!telefono || telefono.length < 9) {
+                alert('Ingresa un número válido');
+                return;
+            }
+
+            try {
+                const res = await fetch(`${API_URL}/auth/check-phone`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ telefono })
+                });
+                const data = await res.json();
+
+                if (data.existe) {
+                    if (data.tiene_password) {
+                        alert('Ese número ya tiene una cuenta creada. Iniciá sesión con tu contraseña.');
+                        mostrarPasoPassword();
+                    } else {
+                        alert('Ese número ya está registrado. Vas a iniciar sesión con el código de verificación.');
+                        await enviarCodigo();
+                    }
+                    return;
+                }
+
+                modoRegistroDirecto = true;
+                usuarioTelefono = telefono;
+                mostrarRegistroCliente(false, '');
+            } catch (error) {
+                alert('Error: ' + error.message);
+            }
+        }
+
+        function mostrarPasoPassword() {
+            document.getElementById('paso1').classList.add('hidden');
+            document.getElementById('paso2').classList.add('hidden');
+            document.getElementById('pasoPassword').classList.remove('hidden');
+            setTimeout(() => document.getElementById('passwordLogin').focus(), 100);
+        }
+
+        async function iniciarSesionConPassword() {
+            const telefono = document.getElementById('telefono').value;
+            const password = document.getElementById('passwordLogin').value;
+
+            if (!password) {
+                alert('Ingresá tu contraseña');
+                return;
+            }
+
+            try {
+                const res = await fetch(`${API_URL}/auth/login-password`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ telefono, password })
+                });
+                const data = await res.json();
+                if (!res.ok || !data.success) throw new Error(data.error || 'No se pudo iniciar sesión');
+
+                usuarioId = data.usuario.id;
+                usuarioTelefono = data.usuario.telefono;
+                usuarioRol = data.usuario.rol || 'cliente';
+                document.getElementById('passwordLogin').value = '';
+                await mostrarDashboard();
+            } catch (error) {
+                alert(error.message);
+            }
+        }
+
+        // El cliente perdió su contraseña: reutilizamos el código de verificación
+        // al mismo número para confirmar que es dueño de la cuenta, y después le
+        // pedimos que cree una contraseña nueva.
+        async function olvidoPassword() {
+            document.getElementById('pasoPassword').classList.add('hidden');
+            document.getElementById('passwordLogin').value = '';
+            enRecuperacionPassword = true;
+            await enviarCodigo();
+        }
+
         async function enviarCodigo() {
             const telefono = document.getElementById('telefono').value;
             if (!telefono || telefono.length < 9) {
@@ -673,6 +715,7 @@ async function crearPedidoConTarifa() {
                 if (data.success) {
                     alert('El código de prueba es: 123456');
                     document.getElementById('paso1').classList.add('hidden');
+                    document.getElementById('pasoPassword').classList.add('hidden');
                     document.getElementById('paso2').classList.remove('hidden');
                 }
             } catch (error) {
@@ -695,10 +738,89 @@ async function crearPedidoConTarifa() {
                     usuarioId = data.usuario.id;
                     usuarioTelefono = data.usuario.telefono;
                     usuarioRol = data.usuario.rol || 'cliente';
-                    await mostrarDashboard();
+
+                    if (enRecuperacionPassword || data.usuario.requiere_registro) {
+                        mostrarRegistroCliente(enRecuperacionPassword, data.usuario.nombre || '');
+                    } else {
+                        await mostrarDashboard();
+                    }
                 } else {
-                    alert('Código inválido');
+                    alert(data.error || 'Código inválido');
                 }
+            } catch (error) {
+                alert('Error: ' + error.message);
+            }
+        }
+
+        function mostrarRegistroCliente(esRecuperacion, nombreActual) {
+            document.getElementById('loginScreen').classList.add('hidden');
+            document.getElementById('registroClienteScreen').classList.remove('hidden');
+
+            const esNombreReal = nombreActual && nombreActual !== usuarioTelefono;
+            document.getElementById('registroNombreCliente').value = esNombreReal ? nombreActual : '';
+
+            if (esRecuperacion) {
+                document.getElementById('registroLogo').textContent = '🔒';
+                document.getElementById('registroTitulo').textContent = 'Restablecé tu contraseña';
+                document.getElementById('registroSubtitulo').textContent = 'Confirmá tu nombre y creá una contraseña nueva.';
+            } else {
+                document.getElementById('registroLogo').textContent = '👋';
+                document.getElementById('registroTitulo').textContent = '¡Bienvenido!';
+                document.getElementById('registroSubtitulo').textContent = 'Contanos tu nombre y creá una contraseña para tu cuenta. Es personal e intransferible.';
+            }
+
+            setTimeout(() => document.getElementById('registroNombreCliente').focus(), 100);
+        }
+
+        async function completarRegistroCliente() {
+            const nombre = document.getElementById('registroNombreCliente').value.trim();
+            const password = document.getElementById('registroPassword').value;
+            const passwordConfirmar = document.getElementById('registroPasswordConfirmar').value;
+
+            if (!nombre) {
+                alert('Contanos tu nombre para continuar');
+                return;
+            }
+            if (password.length < 6) {
+                alert('La contraseña debe tener al menos 6 caracteres');
+                return;
+            }
+            if (password !== passwordConfirmar) {
+                alert('Las contraseñas no coinciden');
+                return;
+            }
+
+            try {
+                let res, data;
+
+                if (modoRegistroDirecto) {
+                    // Cuenta totalmente nueva: no pasó por el código de verificación,
+                    // así que todavía no existe usuario_id. La crea de una.
+                    res = await fetch(`${API_URL}/auth/registrar`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ telefono: usuarioTelefono, nombre, password })
+                    });
+                    data = await res.json();
+                    if (!res.ok) throw new Error(data.error || 'No se pudo crear tu cuenta');
+                    usuarioId = data.usuario.id;
+                    usuarioRol = data.usuario.rol;
+                } else {
+                    res = await fetch(`${API_URL}/auth/completar-registro`, {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ usuario_id: usuarioId, nombre, password })
+                    });
+                    data = await res.json();
+                    if (!res.ok) throw new Error(data.error || 'No se pudo guardar tus datos');
+                }
+
+                modoRegistroDirecto = false;
+                enRecuperacionPassword = false;
+                document.getElementById('registroClienteScreen').classList.add('hidden');
+                document.getElementById('registroPassword').value = '';
+                document.getElementById('registroPasswordConfirmar').value = '';
+                await mostrarDashboard();
             } catch (error) {
                 alert('Error: ' + error.message);
             }
@@ -707,6 +829,7 @@ async function crearPedidoConTarifa() {
         function paso1() {
             document.getElementById('paso1').classList.remove('hidden');
             document.getElementById('paso2').classList.add('hidden');
+            document.getElementById('pasoPassword').classList.add('hidden');
         }
 
         async function mostrarDashboard() {
@@ -812,7 +935,12 @@ async function crearPedidoConTarifa() {
                                 <div class="admin-fila"><span>Estado</span><strong>${r.estado_aprobacion}</strong></div>
                                 ${r.estado_aprobacion === 'pendiente'
                                     ? `<button class="btn-asignar" onclick="aprobarRepartidor(${r.id})" style="background:#4caf50;">Aprobar repartidor</button>`
-                                    : `<button class="btn-asignar" onclick="actualizarGpsRepartidor(${r.id})" style="background:#7c3aed;">Actualizar GPS</button>`}
+                                    : `
+                                        <div class="repartidor-acciones">
+                                            <button class="btn-asignar" onclick="actualizarGpsRepartidor(${r.id})" style="background:#7c3aed;">Actualizar GPS</button>
+                                            <button class="btn-asignar" onclick="verLiquidacionesDeRepartidor(${r.id})" style="background:var(--color-info);">Ver liquidaciones</button>
+                                        </div>
+                                    `}
                             </div>
                         `;
                     });
@@ -1210,7 +1338,7 @@ async function crearPedidoConTarifa() {
 
             if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
             if ('Notification' in window && Notification.permission === 'granted') {
-                new Notification('MotoCourier CDE', { body: mensaje });
+                new Notification('JMMotocourier', { body: mensaje });
             }
         }
 
@@ -1230,6 +1358,12 @@ async function crearPedidoConTarifa() {
                 if (repartidor.estado_aprobacion !== 'aprobado') {
                     estadoGps.textContent = 'Tu cuenta está pendiente de aprobación administrativa.';
                     lista.innerHTML = '<div class="no-data">Todavía no podés recibir pedidos hasta ser aprobado.</div>';
+                    return;
+                }
+
+                if (repartidor.bloqueado) {
+                    estadoGps.textContent = 'Cuenta bloqueada: tenés un saldo pendiente con JMMotocourier.';
+                    lista.innerHTML = '<div class="no-data">No podés recibir pedidos nuevos hasta pagar tu saldo pendiente. Andá a "Mis liquidaciones" para subir tu comprobante.</div>';
                     return;
                 }
 
@@ -1489,7 +1623,7 @@ async function cargarHistorial() {
 
             const url = `https://www.google.com/maps/dir/?api=1&destination=${latitud},${longitud}&travelmode=driving`;
             const nuevaVentana = window.open(url, '_blank', 'noopener');
-            if (!nuevaVentana) window.location.href = url;
+           if (!nuevaVentana) window.open(url, '_blank', 'noopener');
         }
 
         async function actualizarGpsMiRepartidor() {
@@ -1507,6 +1641,10 @@ async function cargarHistorial() {
                 }
                 if (repartidor.estado_aprobacion !== 'aprobado') {
                     alert('Tu cuenta todavía debe ser aprobada por el administrador.');
+                    return;
+                }
+                if (repartidor.bloqueado) {
+                    alert('Tenés un saldo pendiente con JMMotocourier. No podés recibir pedidos nuevos hasta pagarlo — subí tu comprobante en "Mis liquidaciones".');
                     return;
                 }
                 if (!navigator.geolocation) {
@@ -1736,10 +1874,17 @@ async function cargarHistorial() {
             usuarioTelefono = null;
             usuarioRol = 'cliente';
             esRepartidor = false;
+            enRecuperacionPassword = false;
+            modoRegistroDirecto = false;
             document.getElementById('loginScreen').classList.remove('hidden');
+            document.getElementById('registroClienteScreen').classList.add('hidden');
             document.getElementById('dashboardScreen').classList.add('hidden');
             document.getElementById('telefono').value = '';
             document.getElementById('codigo').value = '';
+            document.getElementById('passwordLogin').value = '';
+            document.getElementById('registroNombreCliente').value = '';
+            document.getElementById('registroPassword').value = '';
+            document.getElementById('registroPasswordConfirmar').value = '';
             paso1();
         }
 
@@ -1775,6 +1920,7 @@ async function cargarHistorial() {
         }
     </script>
     <!-- Script de liquidaciones (admin y repartidores) -->
-    <script src="js/liquidaciones-frontend.js"></script>
+   <script src="js/liquidaciones-frontend.js"></script>
+  <script>paso1();</script>
 </body>
 </html>
