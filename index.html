@@ -344,6 +344,8 @@
         let marcadorRepartidor = null;
         let pedidoActivoChat = null;
         let intervaloChat = null;
+        let mensajesConocidos = new Set();
+        let primeraCargaChat = true;
 
         // Puntos marcados
         let puntoRetiro = null;
@@ -1252,6 +1254,8 @@ async function crearPedidoConTarifa() {
 
         function abrirChat(pedidoId) {
             pedidoActivoChat = pedidoId;
+            mensajesConocidos = new Set();
+            primeraCargaChat = true;
             const titulo = document.getElementById('chatTituloPedido');
             if (titulo) titulo.textContent = `Pedido #${pedidoId}`;
             mostrarSeccion('chat');
@@ -1260,6 +1264,8 @@ async function crearPedidoConTarifa() {
 
         function cerrarChat() {
             pedidoActivoChat = null;
+            mensajesConocidos = new Set();
+            primeraCargaChat = true;
             if (intervaloChat !== null) {
                 clearInterval(intervaloChat);
                 intervaloChat = null;
@@ -1269,15 +1275,24 @@ async function crearPedidoConTarifa() {
 
         async function cargarMensajes() {
             if (!pedidoActivoChat) return;
-            
+
             try {
                 const res = await fetch(`${API_URL}/pedidos/${pedidoActivoChat}/mensajes`);
                 const msgs = await res.json();
-                
+
                 let html = '';
+                let hayMensajeNuevoDeOtro = false;
                 msgs.forEach(msg => {
                     const esCliente = msg.usuario_id === usuarioId;
                     const claseMsg = esCliente ? 'mensaje-cliente' : 'mensaje-repartidor';
+
+                    if (!mensajesConocidos.has(msg.id)) {
+                        mensajesConocidos.add(msg.id);
+                        if (!primeraCargaChat && !esCliente) {
+                            hayMensajeNuevoDeOtro = true;
+                        }
+                    }
+
                     html += `
                         <div class="mensaje ${claseMsg}">
                             ${!esCliente && msg.usuario_nombre ? `<div class="mensaje-autor">${msg.usuario_nombre}</div>` : ''}
@@ -1286,9 +1301,15 @@ async function crearPedidoConTarifa() {
                         </div>
                     `;
                 });
-                
+
                 document.getElementById('chatMensajes').innerHTML = html;
                 document.getElementById('chatMensajes').scrollTop = document.getElementById('chatMensajes').scrollHeight;
+
+                if (hayMensajeNuevoDeOtro) {
+                    reproducirTonoMensajeChat();
+                    if (navigator.vibrate) navigator.vibrate(120);
+                }
+                primeraCargaChat = false;
             } catch (error) {
                 console.error(error);
             }
@@ -1454,29 +1475,59 @@ async function crearPedidoConTarifa() {
                 if (!ContextoAudio) return;
 
                 const contexto = new ContextoAudio();
-                const notas = [880, 1180]; // Dos tonos cortos, tipo "ding-dong" de notificación.
+                // Patrón más llamativo: dos rondas de tres tonos tipo "alarma", con volumen más alto.
+                const notas = [880, 1180, 880, 1180, 1480, 1480];
 
                 notas.forEach((frecuencia, indice) => {
                     const oscilador = contexto.createOscillator();
                     const ganancia = contexto.createGain();
-                    const inicio = contexto.currentTime + indice * 0.16;
+                    const inicio = contexto.currentTime + indice * 0.18;
 
-                    oscilador.type = 'sine';
+                    oscilador.type = 'square';
                     oscilador.frequency.setValueAtTime(frecuencia, inicio);
 
                     ganancia.gain.setValueAtTime(0, inicio);
-                    ganancia.gain.linearRampToValueAtTime(0.35, inicio + 0.02);
-                    ganancia.gain.exponentialRampToValueAtTime(0.001, inicio + 0.3);
+                    ganancia.gain.linearRampToValueAtTime(0.55, inicio + 0.02);
+                    ganancia.gain.exponentialRampToValueAtTime(0.001, inicio + 0.34);
 
                     oscilador.connect(ganancia);
                     ganancia.connect(contexto.destination);
                     oscilador.start(inicio);
-                    oscilador.stop(inicio + 0.32);
+                    oscilador.stop(inicio + 0.36);
                 });
 
-                setTimeout(() => contexto.close(), 800);
+                setTimeout(() => contexto.close(), 1600);
             } catch (error) {
                 console.error('No se pudo reproducir el tono de pedido nuevo.', error);
+            }
+        }
+
+        function reproducirTonoMensajeChat() {
+            try {
+                const ContextoAudio = window.AudioContext || window.webkitAudioContext;
+                if (!ContextoAudio) return;
+
+                const contexto = new ContextoAudio();
+                const oscilador = contexto.createOscillator();
+                const ganancia = contexto.createGain();
+                const inicio = contexto.currentTime;
+
+                oscilador.type = 'sine';
+                oscilador.frequency.setValueAtTime(660, inicio);
+                oscilador.frequency.setValueAtTime(880, inicio + 0.09);
+
+                ganancia.gain.setValueAtTime(0, inicio);
+                ganancia.gain.linearRampToValueAtTime(0.22, inicio + 0.02);
+                ganancia.gain.exponentialRampToValueAtTime(0.001, inicio + 0.22);
+
+                oscilador.connect(ganancia);
+                ganancia.connect(contexto.destination);
+                oscilador.start(inicio);
+                oscilador.stop(inicio + 0.24);
+
+                setTimeout(() => contexto.close(), 500);
+            } catch (error) {
+                console.error('No se pudo reproducir el tono de mensaje de chat.', error);
             }
         }
 
@@ -1485,7 +1536,7 @@ async function crearPedidoConTarifa() {
             mostrarNotificacion(mensaje);
             reproducirTonoPedidoNuevo();
 
-            if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
+            if (navigator.vibrate) navigator.vibrate([250, 100, 250, 100, 250]);
             if ('Notification' in window && Notification.permission === 'granted') {
                 new Notification('JMMotocourier', { body: mensaje });
             }
