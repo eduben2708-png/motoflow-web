@@ -114,9 +114,14 @@
                 <!-- CHAT -->
                 <div id="seccionChat" class="hidden">
                     <div class="chat-container">
+                        <div class="chat-header">
+                            <button type="button" onclick="cerrarChat()" style="width:auto; margin:0; padding:8px 14px; background:#666;">← Volver</button>
+                            <span id="chatTituloPedido"></span>
+                        </div>
                         <div class="chat-mensajes" id="chatMensajes"></div>
                         <div class="chat-input">
-                            <input id="inputMensaje" type="text" placeholder="Escribe un mensaje...">
+                            <input id="inputMensaje" type="text" placeholder="Escribe un mensaje..."
+                                onkeydown="if(event.key==='Enter') enviarMensaje();">
                             <button onclick="enviarMensaje()">Enviar</button>
                         </div>
                     </div>
@@ -338,7 +343,8 @@
         let mapaCrear = null;
         let marcadorRepartidor = null;
         let pedidoActivoChat = null;
-        
+        let intervaloChat = null;
+
         // Puntos marcados
         let puntoRetiro = null;
         let puntoEntrega = null;
@@ -1241,8 +1247,19 @@ async function crearPedidoConTarifa() {
 
         function abrirChat(pedidoId) {
             pedidoActivoChat = pedidoId;
+            const titulo = document.getElementById('chatTituloPedido');
+            if (titulo) titulo.textContent = `Pedido #${pedidoId}`;
             mostrarSeccion('chat');
             cargarMensajes();
+        }
+
+        function cerrarChat() {
+            pedidoActivoChat = null;
+            if (intervaloChat !== null) {
+                clearInterval(intervaloChat);
+                intervaloChat = null;
+            }
+            mostrarSeccion(esRepartidor ? 'miRuta' : 'pedidos');
         }
 
         async function cargarMensajes() {
@@ -1258,6 +1275,7 @@ async function crearPedidoConTarifa() {
                     const claseMsg = esCliente ? 'mensaje-cliente' : 'mensaje-repartidor';
                     html += `
                         <div class="mensaje ${claseMsg}">
+                            ${!esCliente && msg.usuario_nombre ? `<div class="mensaje-autor">${msg.usuario_nombre}</div>` : ''}
                             <div>${msg.mensaje}</div>
                             <div class="mensaje-hora">${msg.timestamp}</div>
                         </div>
@@ -1297,8 +1315,8 @@ async function crearPedidoConTarifa() {
         }
 
         function mostrarSeccion(seccion) {
-            if (esRepartidor && !['miRuta', 'historial'].includes(seccion)) {
-        alert('Tu cuenta de repartidor solo puede acceder a Mi ruta o Historial.');
+            if (esRepartidor && !['miRuta', 'historial', 'chat'].includes(seccion)) {
+        alert('Tu cuenta de repartidor solo puede acceder a Mi ruta, Historial o el Chat de un pedido.');
         return;
     }
 
@@ -1316,14 +1334,20 @@ async function crearPedidoConTarifa() {
             document.getElementById('seccionAdmin').classList.add('hidden');
             document.getElementById('seccionMiRuta').classList.add('hidden');
 
+            if (seccion !== 'chat' && intervaloChat !== null) {
+                clearInterval(intervaloChat);
+                intervaloChat = null;
+            }
+
             document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
 
             if (seccion === 'chat') {
                 document.getElementById('seccionChat').classList.remove('hidden');
-                event.target.classList.add('active');
+                if (event && event.target) event.target.classList.add('active');
                 if (pedidoActivoChat) {
                     cargarMensajes();
-                    setInterval(cargarMensajes, 3000);
+                    if (intervaloChat !== null) clearInterval(intervaloChat);
+                    intervaloChat = setInterval(cargarMensajes, 3000);
                 }
             } else if (seccion === 'mapa') {
                 document.getElementById('seccionMapa').classList.remove('hidden');
@@ -1561,6 +1585,7 @@ async function crearPedidoConTarifa() {
                             </div>
                             <div class="repartidor-acciones">
                                 <button class="btn-gps" onclick="abrirNavegacion('${destinoNavegacion || ''}')">🧭 ${textoNavegacion}</button>
+                                <button style="background:#9c27b0;" onclick="abrirChat(${pedido.id})">💬 Chat con el cliente</button>
                                 ${botonAccion}
                             </div>
                         </div>
