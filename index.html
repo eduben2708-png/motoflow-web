@@ -42,8 +42,11 @@
                 <div id="pasoPassword" class="hidden">
                     <div class="form-group">
                         <label class="label">Ingresá tu contraseña</label>
-                        <input id="passwordLogin" type="password" placeholder="••••••••"
-                            onkeydown="if(event.key==='Enter') iniciarSesionConPassword();">
+                        <div class="campo-password">
+                            <input id="passwordLogin" type="password" placeholder="••••••••"
+                                onkeydown="if(event.key==='Enter') iniciarSesionConPassword();">
+                            <button type="button" class="btn-mostrar-password" onclick="alternarVisibilidadPassword('passwordLogin', this)" aria-label="Mostrar contraseña">👁️</button>
+                        </div>
                     </div>
                     <button onclick="iniciarSesionConPassword()">Ingresar</button>
                     <button onclick="paso1()" style="background: #666;">← Cambiar número</button>
@@ -66,12 +69,18 @@
                 </div>
                 <div class="form-group">
                     <label class="label" for="registroPassword">Contraseña</label>
-                    <input id="registroPassword" type="password" maxlength="72" placeholder="Mínimo 6 caracteres">
+                    <div class="campo-password">
+                        <input id="registroPassword" type="password" maxlength="72" placeholder="Mínimo 6 caracteres">
+                        <button type="button" class="btn-mostrar-password" onclick="alternarVisibilidadPassword('registroPassword', this)" aria-label="Mostrar contraseña">👁️</button>
+                    </div>
                 </div>
                 <div class="form-group">
                     <label class="label" for="registroPasswordConfirmar">Confirmar contraseña</label>
-                    <input id="registroPasswordConfirmar" type="password" maxlength="72" placeholder="Repetí la contraseña"
-                        onkeydown="if(event.key==='Enter') completarRegistroCliente();">
+                    <div class="campo-password">
+                        <input id="registroPasswordConfirmar" type="password" maxlength="72" placeholder="Repetí la contraseña"
+                            onkeydown="if(event.key==='Enter') completarRegistroCliente();">
+                        <button type="button" class="btn-mostrar-password" onclick="alternarVisibilidadPassword('registroPasswordConfirmar', this)" aria-label="Mostrar contraseña">👁️</button>
+                    </div>
                 </div>
                 <button onclick="completarRegistroCliente()">Guardar y continuar</button>
             </div>
@@ -268,6 +277,13 @@
                         <button class="filtro-btn" onclick="filtrarRepartidores('aprobados')">Aprobados</button>
                     </div>
                     <div id="listaRepartidores"></div>
+                </div>
+
+                <!-- CLIENTES -->
+                <div id="seccionClientes" class="hidden">
+                    <h3 class="admin-titulo">Clientes registrados</h3>
+                    <p class="admin-subtitulo">Listado de todas las cuentas de clientes.</p>
+                    <div id="listaClientes"></div>
                 </div>
 
                 <!-- HISTORIAL -->
@@ -938,9 +954,10 @@ async function crearPedidoConTarifa() {
                         html += `
                             <div class="repartidor-card">
                                 <div class="repartidor-header">
-                                    <div>Repartidor #${r.id}</div>
+                                    <div>${r.nombre || 'Repartidor'} #${r.id}</div>
                                     ${r.gps_activo ? '<div class="online">● Online</div>' : ''}
                                 </div>
+                                <div class="admin-fila"><span>Teléfono</span><strong>+595 ${r.telefono || '—'}</strong></div>
                                 <div class="info-row">
                                     <div><div class="stat-label">Entregas</div><div class="stat-value">${r.total_entregas || 0}</div></div>
                                     <div><div class="stat-label">Rating</div><div class="stat-value">⭐ ${r.calificacion || 0}</div></div>
@@ -961,6 +978,40 @@ async function crearPedidoConTarifa() {
                 document.getElementById('listaRepartidores').innerHTML = html;
             } catch (error) {
                 console.error(error);
+            }
+        }
+
+        async function cargarClientes() {
+            const lista = document.getElementById('listaClientes');
+            lista.innerHTML = '<div class="no-data">Cargando...</div>';
+
+            try {
+                const res = await fetch(`${API_URL}/auth/clientes`);
+                const clientes = await res.json();
+                if (!res.ok) throw new Error(clientes.error || 'No se pudo cargar la lista de clientes');
+
+                if (clientes.length === 0) {
+                    lista.innerHTML = '<div class="no-data">Todavía no hay clientes registrados.</div>';
+                    return;
+                }
+
+                lista.innerHTML = clientes.map(cliente => {
+                    const fecha = cliente.created_at
+                        ? new Date(cliente.created_at).toLocaleDateString('es-PY', { day: '2-digit', month: '2-digit', year: 'numeric' })
+                        : 'Sin fecha';
+                    return `
+                        <div class="repartidor-card">
+                            <div class="repartidor-header">
+                                <div>${cliente.nombre || 'Sin nombre'} #${cliente.id}</div>
+                            </div>
+                            <div class="admin-fila"><span>Teléfono</span><strong>+595 ${cliente.telefono || '—'}</strong></div>
+                            <div class="admin-fila"><span>Registrado</span><strong>${fecha}</strong></div>
+                        </div>
+                    `;
+                }).join('');
+            } catch (error) {
+                console.error(error);
+                lista.innerHTML = '<div class="no-data">No se pudo cargar la lista de clientes.</div>';
             }
         }
 
@@ -1092,8 +1143,8 @@ async function crearPedidoConTarifa() {
                     <div class="admin-estadistica"><span class="stat-label">Asignados</span><span class="numero">${contar('asignado')}</span></div>
                     <div class="admin-estadistica"><span class="stat-label">En camino</span><span class="numero">${contar('en_camino')}</span></div>
                     <div class="admin-estadistica"><span class="stat-label">Entregados</span><span class="numero">${contar('entregado')}</span></div>
-                    <div class="admin-estadistica"><span class="stat-label">Clientes registrados</span><span class="numero">${registros.clientes}</span></div>
-                    <div class="admin-estadistica"><span class="stat-label">Repartidores registrados</span><span class="numero">${todosLosRepartidores.length}</span></div>
+                    <div class="admin-estadistica" style="cursor:pointer;" onclick="mostrarSeccion('clientes')"><span class="stat-label">Clientes registrados</span><span class="numero">${registros.clientes}</span></div>
+                    <div class="admin-estadistica" style="cursor:pointer;" onclick="mostrarSeccion('repartidores')"><span class="stat-label">Repartidores registrados</span><span class="numero">${todosLosRepartidores.length}</span></div>
                 `;
 
                 const pedidosOperativos = pedidos.filter(pedido =>
@@ -1251,7 +1302,7 @@ async function crearPedidoConTarifa() {
         return;
     }
 
-            if (['admin', 'repartidores'].includes(seccion) && usuarioRol !== 'admin') {
+            if (['admin', 'repartidores', 'clientes'].includes(seccion) && usuarioRol !== 'admin') {
                 alert('Esta sección es exclusiva para el administrador.');
                 return;
             }
@@ -1261,11 +1312,12 @@ async function crearPedidoConTarifa() {
             document.getElementById('seccionPedidos').classList.add('hidden');
             document.getElementById('seccionCrear').classList.add('hidden');
             document.getElementById('seccionRepartidores').classList.add('hidden');
+            document.getElementById('seccionClientes').classList.add('hidden');
             document.getElementById('seccionAdmin').classList.add('hidden');
             document.getElementById('seccionMiRuta').classList.add('hidden');
-            
+
             document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
-            
+
             if (seccion === 'chat') {
                 document.getElementById('seccionChat').classList.remove('hidden');
                 event.target.classList.add('active');
@@ -1287,8 +1339,12 @@ async function crearPedidoConTarifa() {
                 setTimeout(inicializarMapaCrear, 100);
             } else if (seccion === 'repartidores') {
                 document.getElementById('seccionRepartidores').classList.remove('hidden');
-                event.target.classList.add('active');
+                if (event && event.target) event.target.classList.add('active');
                 cargarRepartidores();
+            } else if (seccion === 'clientes') {
+                document.getElementById('seccionClientes').classList.remove('hidden');
+                if (event && event.target) event.target.classList.add('active');
+                cargarClientes();
             } else if (seccion === 'admin') {
                 document.getElementById('seccionAdmin').classList.remove('hidden');
                 event.target.classList.add('active');
@@ -1351,6 +1407,16 @@ async function crearPedidoConTarifa() {
             intervaloMiRuta = null;
             pedidosRepartidorConocidos = new Set();
             primeraCargaMiRuta = true;
+        }
+
+        function alternarVisibilidadPassword(inputId, boton) {
+            const input = document.getElementById(inputId);
+            if (!input) return;
+
+            const estabaOculto = input.type === 'password';
+            input.type = estabaOculto ? 'text' : 'password';
+            boton.textContent = estabaOculto ? '🙈' : '👁️';
+            boton.setAttribute('aria-label', estabaOculto ? 'Ocultar contraseña' : 'Mostrar contraseña');
         }
 
         function reproducirTonoPedidoNuevo() {

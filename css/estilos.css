@@ -223,6 +223,31 @@ input::placeholder, select::placeholder { color: var(--text-muted); }
 
 input[type="file"] { padding: 8px; font-size: 13px; }
 
+.campo-password { position: relative; }
+.campo-password input { padding-right: 44px; }
+
+.btn-mostrar-password {
+    position: absolute;
+    top: 50%;
+    right: 4px;
+    transform: translateY(-50%);
+    width: auto;
+    padding: 6px 10px;
+    background: transparent;
+    color: var(--text-secondary);
+    box-shadow: none;
+    font-size: 17px;
+    line-height: 1;
+}
+
+.btn-mostrar-password:hover,
+.btn-mostrar-password:active {
+    background: transparent;
+    color: var(--text-primary);
+    box-shadow: none;
+    transform: translateY(-50%);
+}
+
 /* Respaldo visual para Compra por Encargo */
 .form-group:has(#tipoServicio option[value="encargo"]:checked) + #grupoMontoPedido {
     display: block !important;
