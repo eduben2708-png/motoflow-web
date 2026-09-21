@@ -1072,14 +1072,19 @@ async function crearPedidoConTarifa() {
 
         async function cargarPanelAdmin() {
             try {
-                const [resPedidos, resRepartidores] = await Promise.all([
+                const [resPedidos, resRepartidores, resRegistros] = await Promise.all([
                     fetch(`${API_URL}/pedidos`),
-                    fetch(`${API_URL}/repartidores`)
+                    fetch(`${API_URL}/repartidores`),
+                    fetch(`${API_URL}/auth/estadisticas-registro`)
                 ]);
 
                 const pedidos = await resPedidos.json();
-                const repartidores = (await resRepartidores.json())
+                const todosLosRepartidores = await resRepartidores.json();
+                const repartidores = todosLosRepartidores
                     .filter(repartidor => repartidor.estado_aprobacion === 'aprobado');
+                const registros = resRegistros.ok
+                    ? await resRegistros.json()
+                    : { clientes: 0, repartidores: todosLosRepartidores.length };
 
                 const contar = estado => pedidos.filter(pedido => pedido.estado === estado).length;
                 document.getElementById('adminEstadisticas').innerHTML = `
@@ -1087,6 +1092,8 @@ async function crearPedidoConTarifa() {
                     <div class="admin-estadistica"><span class="stat-label">Asignados</span><span class="numero">${contar('asignado')}</span></div>
                     <div class="admin-estadistica"><span class="stat-label">En camino</span><span class="numero">${contar('en_camino')}</span></div>
                     <div class="admin-estadistica"><span class="stat-label">Entregados</span><span class="numero">${contar('entregado')}</span></div>
+                    <div class="admin-estadistica"><span class="stat-label">Clientes registrados</span><span class="numero">${registros.clientes}</span></div>
+                    <div class="admin-estadistica"><span class="stat-label">Repartidores registrados</span><span class="numero">${todosLosRepartidores.length}</span></div>
                 `;
 
                 const pedidosOperativos = pedidos.filter(pedido =>
@@ -1112,6 +1119,7 @@ async function crearPedidoConTarifa() {
                                     <strong>Pedido #${pedido.id}</strong>
                                     <span class="estado ${pedido.estado}">${formatearEstado(pedido.estado)}</span>
                                 </div>
+                                <div class="admin-fila"><span>Cliente</span><strong>${pedido.cliente_nombre || `Cliente #${pedido.cliente_id}`}</strong></div>
                                 <div class="admin-fila"><span>Servicio</span><strong>${pedido.tipo}</strong></div>
                                 <div class="admin-fila"><span>Distancia</span><strong>${pedido.distancia_km || 0} km</strong></div>
                                 <div class="admin-fila"><span>Total</span><strong>Gs. ${Number(pedido.monto || 0).toLocaleString('es-PY')}</strong></div>
@@ -1345,9 +1353,42 @@ async function crearPedidoConTarifa() {
             primeraCargaMiRuta = true;
         }
 
+        function reproducirTonoPedidoNuevo() {
+            try {
+                const ContextoAudio = window.AudioContext || window.webkitAudioContext;
+                if (!ContextoAudio) return;
+
+                const contexto = new ContextoAudio();
+                const notas = [880, 1180]; // Dos tonos cortos, tipo "ding-dong" de notificación.
+
+                notas.forEach((frecuencia, indice) => {
+                    const oscilador = contexto.createOscillator();
+                    const ganancia = contexto.createGain();
+                    const inicio = contexto.currentTime + indice * 0.16;
+
+                    oscilador.type = 'sine';
+                    oscilador.frequency.setValueAtTime(frecuencia, inicio);
+
+                    ganancia.gain.setValueAtTime(0, inicio);
+                    ganancia.gain.linearRampToValueAtTime(0.35, inicio + 0.02);
+                    ganancia.gain.exponentialRampToValueAtTime(0.001, inicio + 0.3);
+
+                    oscilador.connect(ganancia);
+                    ganancia.connect(contexto.destination);
+                    oscilador.start(inicio);
+                    oscilador.stop(inicio + 0.32);
+                });
+
+                setTimeout(() => contexto.close(), 800);
+            } catch (error) {
+                console.error('No se pudo reproducir el tono de pedido nuevo.', error);
+            }
+        }
+
         function avisarPedidoNuevo(pedido) {
             const mensaje = `¡Nuevo pedido asignado! Pedido #${pedido.id}.`;
             mostrarNotificacion(mensaje);
+            reproducirTonoPedidoNuevo();
 
             if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
             if ('Notification' in window && Notification.permission === 'granted') {
@@ -1581,7 +1622,7 @@ async function cargarHistorial() {
                         <div>📏 Distancia: ${pedido.distancia_km ?? 'N/D'} km</div>
                         <div>💰 Total: Gs. ${Number(pedido.monto || 0).toLocaleString('es-PY')}</div>
                         <div>💳 Pago: ${formatearTipoPago(pedido.tipo_pago)}</div>
-                        ${usuarioRol === 'admin' ? `<div>👤 Cliente #${pedido.cliente_id} · 🛵 Repartidor #${pedido.repartidor_id ?? 'sin asignar'}</div>` : ''}
+                        ${usuarioRol === 'admin' ? `<div>👤 Cliente: ${pedido.cliente_nombre || `#${pedido.cliente_id}`} · 🛵 Repartidor #${pedido.repartidor_id ?? 'sin asignar'}</div>` : ''}
                     </div>
                 </div>
             `;
