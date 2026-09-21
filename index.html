@@ -573,10 +573,15 @@ async function crearPedidoConTarifa() {
             })
         });
 
-        const data = await res.json();
+        let data = null;
+        try {
+            data = await res.json();
+        } catch (errorParseo) {
+            console.error('Respuesta no válida del servidor al crear el pedido.', errorParseo);
+        }
 
-        if (!res.ok || !data.id) {
-            throw new Error(data.error || 'No se pudo guardar el pedido');
+        if (!res.ok || !data || !data.id) {
+            throw new Error((data && data.error) || 'No se pudo guardar el pedido. El servidor puede haber estado reiniciándose — esperá unos segundos y probá de nuevo.');
         }
 
         if (data.id) {
