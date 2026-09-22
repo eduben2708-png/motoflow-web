@@ -1583,7 +1583,11 @@ async function crearPedidoConTarifa() {
                 const idsActuales = new Set(misPedidos.map(pedido => pedido.id));
                 if (verificarNuevos && !primeraCargaMiRuta) {
                     misPedidos
-                        .filter(pedido => !pedidosRepartidorConocidos.has(pedido.id))
+                        // El tono es solo para avisar de una asignación nueva: si el
+                        // pedido ya está "en_retiro" o "en_camino" es porque el
+                        // repartidor ya lo aceptó y está trabajando en él, así que no
+                        // debe volver a sonar.
+                        .filter(pedido => !pedidosRepartidorConocidos.has(pedido.id) && pedido.estado === 'asignado')
                         .forEach(avisarPedidoNuevo);
                 }
                 pedidosRepartidorConocidos = idsActuales;
