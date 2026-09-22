@@ -2047,11 +2047,11 @@ async function cargarHistorial() {
             const ciudadDelEste = [-25.5095, -54.6132];
             
             mapaCrear = L.map('mapaCrear').setView(ciudadDelEste, 14);
-            
-            L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
-                attribution: '&copy; OpenStreetMap contributors &copy; CARTO',
-                subdomains: 'abcd',
-                maxZoom: 20
+
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '&copy; OpenStreetMap contributors',
+                subdomains: 'abc',
+                maxZoom: 19
             }).addTo(mapaCrear);
 
             mapaCrear.on('click', function(e) {
@@ -2074,11 +2074,11 @@ async function cargarHistorial() {
             const ciudadDelEste = [-25.5095, -54.6132];
             
             mapa = L.map('mapa').setView(ciudadDelEste, 14);
-            
-            L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
-                attribution: '&copy; OpenStreetMap contributors &copy; CARTO',
-                subdomains: 'abcd',
-                maxZoom: 20
+
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '&copy; OpenStreetMap contributors',
+                subdomains: 'abc',
+                maxZoom: 19
             }).addTo(mapa);
 
             L.marker(ciudadDelEste, {
