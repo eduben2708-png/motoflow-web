@@ -1533,13 +1533,20 @@ async function crearPedidoConTarifa() {
 
         function avisarPedidoNuevo(pedido) {
             const mensaje = `¡Nuevo pedido asignado! Pedido #${pedido.id}.`;
-            mostrarNotificacion(mensaje);
-            reproducirTonoPedidoNuevo();
 
+            // El sonido y la vibración van ANTES de mostrarNotificacion() a
+            // propósito: esa función usa alert(), que es bloqueante y detiene
+            // el hilo de JS hasta que el repartidor lo cierra. Si el tono se
+            // disparara después, quedaría en pausa hasta que se cierre la
+            // alerta y sonaría recién al tocar "Aceptar" en vez de al llegar
+            // el mensaje.
+            reproducirTonoPedidoNuevo();
             if (navigator.vibrate) navigator.vibrate([250, 100, 250, 100, 250]);
             if ('Notification' in window && Notification.permission === 'granted') {
                 new Notification('JMMotocourier', { body: mensaje });
             }
+
+            mostrarNotificacion(mensaje);
         }
 
         async function cargarPanelMiRuta(verificarNuevos = false) {
