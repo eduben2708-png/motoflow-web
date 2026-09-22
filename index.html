@@ -361,6 +361,41 @@
         let primeraCargaMiRuta = true;
         let pedidosMiRutaActuales = [];
 
+        // Guarda la sesión en localStorage para que sobreviva a un refresh
+        // del celular (Android/iOS a veces recargan la página al volver del
+        // segundo plano, o el usuario desliza para refrescar). Sin esto,
+        // cada refresh perdía usuarioId/usuarioTelefono/usuarioRol -que solo
+        // vivían en memoria- y mandaba de nuevo a la pantalla de login.
+        const CLAVE_SESION = 'jmmotocourier_sesion';
+
+        function guardarSesion() {
+            try {
+                localStorage.setItem(CLAVE_SESION, JSON.stringify({ usuarioId, usuarioTelefono, usuarioRol }));
+            } catch (error) {
+                console.error('No se pudo guardar la sesión.', error);
+            }
+        }
+
+        function borrarSesion() {
+            try {
+                localStorage.removeItem(CLAVE_SESION);
+            } catch (error) {
+                console.error('No se pudo borrar la sesión.', error);
+            }
+        }
+
+        function cargarSesionGuardada() {
+            try {
+                const guardada = JSON.parse(localStorage.getItem(CLAVE_SESION));
+                if (guardada && guardada.usuarioId) {
+                    return guardada;
+                }
+            } catch (error) {
+                console.error('No se pudo leer la sesión guardada.', error);
+            }
+            return null;
+        }
+
         // Tarifas por distancia
 function obtenerDesgloseTarifa(distanciaKm) {
     const distancia = Number(distanciaKm) || 0;
@@ -875,6 +910,7 @@ async function crearPedidoConTarifa() {
         }
 
         async function mostrarDashboard() {
+            guardarSesion();
             document.getElementById('loginScreen').classList.add('hidden');
             document.getElementById('dashboardScreen').classList.remove('hidden');
             document.getElementById('usuarioTel').textContent = '+595 ' + usuarioTelefono;
@@ -2156,6 +2192,7 @@ async function cargarHistorial() {
         function logout() {
             detenerSeguimientoGpsRepartidor();
             detenerActualizacionMiRuta();
+            borrarSesion();
             usuarioId = null;
             usuarioTelefono = null;
             usuarioRol = 'cliente';
@@ -2207,6 +2244,19 @@ async function cargarHistorial() {
     </script>
     <!-- Script de liquidaciones (admin y repartidores) -->
    <script src="js/liquidaciones-frontend.js"></script>
-  <script>paso1();</script>
+  <script>
+    // Al cargar (o al refrescar), si hay una sesión guardada la restauramos
+    // directo al panel en vez de mandar al usuario de nuevo a la pantalla
+    // de login.
+    const sesionGuardadaAlCargar = cargarSesionGuardada();
+    if (sesionGuardadaAlCargar) {
+        usuarioId = sesionGuardadaAlCargar.usuarioId;
+        usuarioTelefono = sesionGuardadaAlCargar.usuarioTelefono;
+        usuarioRol = sesionGuardadaAlCargar.usuarioRol || 'cliente';
+        mostrarDashboard();
+    } else {
+        paso1();
+    }
+  </script>
 </body>
 </html>
