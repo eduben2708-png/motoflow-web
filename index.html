@@ -1909,8 +1909,9 @@ async function cargarHistorial() {
             }
         }
 
-        // Buscador de direcciones gratuito (Nominatim/OpenStreetMap, sin clave de
-        // API). Muestra sugerencias mientras el usuario escribe y, al elegir una,
+        // Buscador de direcciones vía Google Places (a través de nuestro propio
+        // backend, que guarda la clave de API escondida — ver routes/lugares.js).
+        // Muestra sugerencias mientras el usuario escribe y, al elegir una,
         // marca el punto en el mapa igual que si hubiera tocado ahí directamente.
         let temporizadorBusquedaDireccion = {};
         let sugerenciasDireccionActuales = [];
@@ -1931,18 +1932,14 @@ async function cargarHistorial() {
 
             temporizadorBusquedaDireccion[tipo] = setTimeout(async () => {
                 try {
-                    // Caja alrededor de Ciudad del Este y alrededores, para priorizar
-                    // resultados de la zona antes que de cualquier otro lugar del país.
-                    const params = new URLSearchParams({
-                        format: 'json',
-                        q: consulta,
-                        viewbox: '-54.75,-25.40,-54.50,-25.60',
-                        bounded: '1',
-                        countrycodes: 'py',
-                        limit: '5'
-                    });
-                    const respuesta = await fetch(`https://nominatim.openstreetmap.org/search?${params}`);
+                    const params = new URLSearchParams({ q: consulta });
+                    const respuesta = await fetch(`${API_URL}/lugares/buscar?${params}`);
                     const resultados = await respuesta.json();
+
+                    if (!respuesta.ok) {
+                        throw new Error((resultados && resultados.error) || 'Error al buscar dirección');
+                    }
+
                     mostrarSugerenciasDireccion(tipo, resultados);
                 } catch (error) {
                     console.error('No se pudo buscar la dirección', error);
