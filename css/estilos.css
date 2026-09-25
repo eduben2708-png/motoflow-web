@@ -156,6 +156,22 @@ a { color: var(--color-primary); }
     box-shadow: 0 8px 24px rgba(59, 130, 246, 0.35);
 }
 
+.horario-servicio {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    margin: 0 auto var(--space-4);
+    padding: 6px 14px;
+    width: fit-content;
+    background: var(--color-warning-soft);
+    border: 1px solid rgba(245, 158, 11, 0.35);
+    border-radius: var(--radius-lg);
+    color: var(--color-warning);
+    font-size: 13px;
+    font-weight: 600;
+}
+
 .title {
     font-family: var(--font-display);
     font-size: 26px;
