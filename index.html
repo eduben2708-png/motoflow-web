@@ -689,7 +689,14 @@ async function crearPedidoConTarifa() {
                 const data = await res.json();
 
                 if (!data.existe) {
-                    alert('Ese número todavía no está registrado. Tocá "Registrarme" para crear tu cuenta.');
+                    // No tiene cuenta todavía: en vez de frenarlo con un cartel
+                    // pidiéndole que toque otro botón, lo mandamos directo a
+                    // crear su cuenta -sin pedirle el código de verificación,
+                    // que hoy es fijo (123456) y no aporta nada-.
+                    alert('Ese número todavía no está registrado. Vamos a crear tu cuenta.');
+                    modoRegistroDirecto = true;
+                    usuarioTelefono = telefono;
+                    mostrarRegistroCliente(false, '');
                     return;
                 }
 
