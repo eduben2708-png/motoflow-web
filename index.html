@@ -985,7 +985,7 @@ async function crearPedidoConTarifa() {
                                     <div style="color: #4caf50; font-weight: bold;">Total: ${p.monto.toLocaleString()} Gs.</div>
                                     <div style="color: #2563eb; font-size: 12px;">${p.tipo}</div>
                                 </div>
-                                ${p.repartidor_id ? `<button onclick="abrirChat(${p.id})" style="width: 100%; padding: 8px; background: #9c27b0; border: none; border-radius: 6px; color: #fff; cursor: pointer;">💬 Chat</button>` : ''}
+                                ${p.repartidor_id && !['entregado', 'cancelado'].includes(p.estado) ? `<button onclick="abrirChat(${p.id})" style="width: 100%; padding: 8px; background: #9c27b0; border: none; border-radius: 6px; color: #fff; cursor: pointer;">💬 Chat</button>` : ''}
                             </div>
                         `;
                     });
@@ -1373,7 +1373,7 @@ async function crearPedidoConTarifa() {
             if (!mensaje) return;
             
             try {
-                await fetch(`${API_URL}/pedidos/${pedidoActivoChat}/mensajes`, {
+                const res = await fetch(`${API_URL}/pedidos/${pedidoActivoChat}/mensajes`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
@@ -1381,11 +1381,16 @@ async function crearPedidoConTarifa() {
                         mensaje
                     })
                 });
-                
+                const data = await res.json();
+
+                if (!res.ok) {
+                    throw new Error(data.error || 'No se pudo enviar el mensaje');
+                }
+
                 input.value = '';
                 cargarMensajes();
             } catch (error) {
-                alert('Error al enviar mensaje');
+                alert(error.message || 'Error al enviar mensaje');
             }
         }
 
@@ -2163,9 +2168,20 @@ async function cargarHistorial() {
                 const pedidoAsignado = misPedidos
                     .filter(p => p.repartidor_id && ['asignado', 'en_retiro', 'en_camino'].includes(p.estado))
                     .sort((a, b) => b.id - a.id)[0];
-                
+
                 if (!pedidoAsignado) {
-                    document.getElementById('mapaDetalles').innerHTML = 'Esperando asignación...';
+                    // Una vez que un pedido se entrega, ya no se debe poder ver la
+                    // ubicación del repartidor: por eso el filtro de arriba excluye
+                    // 'entregado'. Este mensaje distingue ese caso de "todavía no
+                    // asignaron a nadie", para que no quede como un error confuso.
+                    const ultimoPedido = misPedidos.sort((a, b) => b.id - a.id)[0];
+                    if (marcadorRepartidor) {
+                        mapa.removeLayer(marcadorRepartidor);
+                        marcadorRepartidor = null;
+                    }
+                    document.getElementById('mapaDetalles').innerHTML = (ultimoPedido && ultimoPedido.estado === 'entregado')
+                        ? '✅ Tu pedido fue entregado.'
+                        : 'Esperando asignación...';
                     return;
                 }
 
