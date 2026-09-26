@@ -184,6 +184,11 @@
                                 oninput="buscarDireccion('entrega')">
                             <div id="sugerenciasEntrega" class="sugerencias-direccion hidden"></div>
                         </div>
+                        <div class="form-group" style="margin-top:6px;">
+                            <input id="linkUbicacionEntrega" type="text" autocomplete="off"
+                                placeholder="📋 O pegá el link de ubicación que te compartió tu cliente">
+                            <button type="button" class="btn-editar-punto" style="margin-top:6px; width:100%;" onclick="usarLinkUbicacion('entrega')">Usar esta ubicación</button>
+                        </div>
                         <div id="puntoEntrega" class="punto-marcado hidden">
                             ✅ Punto de ENTREGA marcado
                         </div>
@@ -2146,6 +2151,53 @@ async function cargarHistorial() {
             if (puntoRetiro && puntoEntrega) {
                 setTimeout(calcularTarifa, 300);
             }
+        }
+
+        // El vendedor (nuestro cliente) recibe la ubicación de SU propio
+        // cliente como un link de Google Maps (por WhatsApp, por ejemplo) y
+        // en vez de tener que buscar la dirección de nuevo, pega ese link acá
+        // y usamos directo las coordenadas que trae.
+        async function usarLinkUbicacion(tipo) {
+            const idInput = tipo === 'retiro' ? 'linkUbicacionRetiro' : 'linkUbicacionEntrega';
+            const campoLink = document.getElementById(idInput);
+            const valor = campoLink.value.trim();
+
+            if (!valor) {
+                alert('Pegá el link de ubicación que te compartieron');
+                return;
+            }
+
+            // Si ya viene como coordenadas sueltas ("-25.5097, -54.6111"),
+            // no hace falta pasar por el servidor.
+            const coincidenciaDirecta = !valor.includes('http') && valor.match(/(-?\d{1,2}\.\d+)[,\s]+(-?\d{1,3}\.\d+)/);
+            if (coincidenciaDirecta) {
+                aplicarUbicacionPegada(tipo, Number(coincidenciaDirecta[1]), Number(coincidenciaDirecta[2]));
+                campoLink.value = '';
+                return;
+            }
+
+            try {
+                const res = await fetch(`${API_URL}/lugares/resolver-link`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ url: valor })
+                });
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.error || 'No se pudo leer ese link');
+
+                aplicarUbicacionPegada(tipo, data.lat, data.lng);
+                campoLink.value = '';
+            } catch (error) {
+                alert('Error: ' + error.message);
+            }
+        }
+
+        function aplicarUbicacionPegada(tipo, lat, lng) {
+            colocarPunto(tipo, { lat, lng });
+            mapaCrear.setView([lat, lng], 16);
+
+            const idCampo = tipo === 'retiro' ? 'buscarDireccionRetiro' : 'buscarDireccionEntrega';
+            document.getElementById(idCampo).value = `📍 Ubicación pegada (${lat.toFixed(5)}, ${lng.toFixed(5)})`;
         }
 
         function editarPunto(tipo) {
