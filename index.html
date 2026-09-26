@@ -197,6 +197,11 @@
                             <input id="referenciaEntrega" type="text" maxlength="255"
                                 placeholder="Ej.: Casa de Juan, Barrio San José, portón negro">
                         </div>
+                        <div class="form-group">
+                            <label class="label" for="telefonoDestinatario">Teléfono de contacto en la entrega (opcional)</label>
+                            <input id="telefonoDestinatario" type="tel" inputmode="numeric" maxlength="9"
+                                placeholder="Ej.: 984768500">
+                        </div>
 
                         <div class="acciones-puntos">
                             <button type="button" class="btn-editar-punto" onclick="editarPunto('retiro')">Editar retiro</button>
@@ -577,6 +582,7 @@ async function crearPedidoConTarifa() {
 
     const referenciaRetiro = document.getElementById('referenciaRetiro').value.trim();
     const referenciaEntrega = document.getElementById('referenciaEntrega').value.trim();
+    const telefonoDestinatario = document.getElementById('telefonoDestinatario').value.trim();
 
     if (!referenciaRetiro || !referenciaEntrega) {
         alert('Escribí una referencia para el retiro y otra para la entrega');
@@ -625,7 +631,8 @@ async function crearPedidoConTarifa() {
                 monto: totalCobro,
                 distancia_km: distanciaKm,
                 monto_compra: tipoServicio === 'encargo' ? montoCompra : 0,
-                tipo_pago: 'pendiente'
+                tipo_pago: 'pendiente',
+                telefono_destinatario: telefonoDestinatario
             })
         });
 
@@ -651,6 +658,7 @@ async function crearPedidoConTarifa() {
             document.getElementById('montoPedido').value = '';
             document.getElementById('referenciaRetiro').value = '';
             document.getElementById('referenciaEntrega').value = '';
+            document.getElementById('telefonoDestinatario').value = '';
             document.getElementById('desgloseTarifa').classList.add('hidden');
             document.getElementById('puntoRetiro').classList.add('hidden');
             document.getElementById('puntoEntrega').classList.add('hidden');
@@ -1776,6 +1784,7 @@ async function crearPedidoConTarifa() {
                             <div class="repartidor-acciones">
                                 <button class="btn-gps" onclick="abrirNavegacion('${destinoNavegacion || ''}')">🧭 ${textoNavegacion}</button>
                                 <button style="background:#9c27b0;" onclick="abrirChat(${pedido.id})">💬 Chat con el cliente</button>
+                                ${pedido.telefono_destinatario ? `<a class="btn-gps" style="background:#16a34a; text-decoration:none; text-align:center; display:block;" href="tel:+595${pedido.telefono_destinatario}">📞 Llamar al destinatario</a>` : ''}
                                 ${botonAccion}
                             </div>
                         </div>
