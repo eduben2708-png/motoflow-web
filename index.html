@@ -1041,6 +1041,21 @@ async function crearPedidoConTarifa() {
                                             <button class="btn-asignar" onclick="verLiquidacionesDeRepartidor(${r.id})" style="background:var(--color-info);">Ver liquidaciones</button>
                                         </div>
                                     `}
+                                <button class="btn-asignar" style="background:#475569; width:100%; margin-top:8px;" onclick="abrirEdicionRepartidor(${r.id})">✏️ Editar datos</button>
+                                <div class="registro-repartidor hidden" id="edicionRepartidor-${r.id}" style="margin-top:10px;">
+                                    <div class="registro-repartidor-grid">
+                                        <div class="form-group"><input id="editNombre-${r.id}" placeholder="Nombre completo" value="${r.nombre || ''}"></div>
+                                        <div class="form-group"><input id="editTelefono-${r.id}" type="tel" inputmode="numeric" placeholder="Ej.: 984768500" maxlength="9" value="${r.telefono || ''}"></div>
+                                        <div class="form-group"><input id="editCi-${r.id}" placeholder="CI" value="${r.ci || ''}"></div>
+                                        <div class="form-group"><input id="editPlaca-${r.id}" placeholder="Placa de moto" value="${r.placa || ''}"></div>
+                                        <div class="form-group"><input id="editMarcaMoto-${r.id}" placeholder="Marca de moto" value="${r.marca_moto || ''}"></div>
+                                        <div class="form-group"><input id="editModeloMoto-${r.id}" placeholder="Modelo de moto" value="${r.modelo_moto || ''}"></div>
+                                    </div>
+                                    <div style="display:flex; gap:8px;">
+                                        <button onclick="guardarEdicionRepartidor(${r.id})">Guardar cambios</button>
+                                        <button onclick="cerrarEdicionRepartidor(${r.id})" style="background:#666;">Cancelar</button>
+                                    </div>
+                                </div>
                             </div>
                         `;
                     });
@@ -1048,6 +1063,47 @@ async function crearPedidoConTarifa() {
                 document.getElementById('listaRepartidores').innerHTML = html;
             } catch (error) {
                 console.error(error);
+            }
+        }
+
+        function abrirEdicionRepartidor(id) {
+            const bloque = document.getElementById(`edicionRepartidor-${id}`);
+            if (bloque) bloque.classList.toggle('hidden');
+        }
+
+        function cerrarEdicionRepartidor(id) {
+            const bloque = document.getElementById(`edicionRepartidor-${id}`);
+            if (bloque) bloque.classList.add('hidden');
+        }
+
+        async function guardarEdicionRepartidor(id) {
+            const datos = {
+                nombre: document.getElementById(`editNombre-${id}`).value.trim(),
+                telefono: document.getElementById(`editTelefono-${id}`).value.trim(),
+                ci: document.getElementById(`editCi-${id}`).value.trim(),
+                placa: document.getElementById(`editPlaca-${id}`).value.trim(),
+                marca_moto: document.getElementById(`editMarcaMoto-${id}`).value.trim(),
+                modelo_moto: document.getElementById(`editModeloMoto-${id}`).value.trim()
+            };
+
+            if (!datos.nombre || !datos.telefono || !datos.ci || !datos.placa) {
+                alert('Completa nombre, teléfono, CI y placa');
+                return;
+            }
+
+            try {
+                const res = await fetch(`${API_URL}/repartidores/${id}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(datos)
+                });
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.error || 'No se pudieron guardar los cambios');
+
+                alert('Datos del repartidor actualizados.');
+                cargarRepartidores();
+            } catch (error) {
+                alert('Error: ' + error.message);
             }
         }
 
