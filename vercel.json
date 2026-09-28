@@ -32,12 +32,17 @@
     {
       "src": "manifest.json",
       "use": "@vercel/static"
+    },
+    {
+      "src": "sw.js",
+      "use": "@vercel/static"
     }
   ],
   "routes": [
     { "src": "/css/(.*)", "dest": "/css/$1" },
     { "src": "/js/(.*)", "dest": "/js/$1" },
     { "src": "/icons/(.*)", "dest": "/icons/$1" },
+    { "src": "/sw.js", "dest": "/sw.js" },
     { "src": "/(.*)", "dest": "/$1" }
   ]
 }

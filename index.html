@@ -420,6 +420,83 @@
             return null;
         }
 
+        // Notificaciones push: hacen que suene/vibre/aparezca el aviso de un
+        // pedido nuevo aunque el repartidor tenga la app cerrada o el
+        // celular bloqueado (con el setInterval de siempre eso no pasaba,
+        // porque el navegador deja de correr JS de la página cuando está en
+        // segundo plano). Solo se activan para cuentas de repartidor.
+
+        // Conversión estándar de la clave pública VAPID (que viene en
+        // base64url) al formato de bytes que pide PushManager.subscribe().
+        function convertirClaveVapid(claveBase64Url) {
+            const relleno = '='.repeat((4 - claveBase64Url.length % 4) % 4);
+            const base64 = (claveBase64Url + relleno).replace(/-/g, '+').replace(/_/g, '/');
+            const bruto = window.atob(base64);
+            const salida = new Uint8Array(bruto.length);
+            for (let i = 0; i < bruto.length; i++) {
+                salida[i] = bruto.charCodeAt(i);
+            }
+            return salida;
+        }
+
+        async function suscribirseANotificacionesPush() {
+            if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+                console.log('Este navegador no soporta notificaciones push.');
+                return;
+            }
+
+            try {
+                const registro = await navigator.serviceWorker.register('sw.js');
+
+                let permiso = Notification.permission;
+                if (permiso === 'default') {
+                    permiso = await Notification.requestPermission();
+                }
+                if (permiso !== 'granted') {
+                    console.log('El repartidor no habilitó las notificaciones.');
+                    return;
+                }
+
+                let suscripcion = await registro.pushManager.getSubscription();
+                if (!suscripcion) {
+                    const res = await fetch(`${API_URL}/push/vapid-public-key`);
+                    if (!res.ok) return;
+                    const { publicKey } = await res.json();
+
+                    suscripcion = await registro.pushManager.subscribe({
+                        userVisibleOnly: true,
+                        applicationServerKey: convertirClaveVapid(publicKey)
+                    });
+                }
+
+                await fetch(`${API_URL}/push/suscribir`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ usuario_id: usuarioId, subscription: suscripcion })
+                });
+            } catch (error) {
+                console.error('No se pudo activar las notificaciones push.', error);
+            }
+        }
+
+        async function desuscribirseDeNotificacionesPush() {
+            if (!('serviceWorker' in navigator)) return;
+            try {
+                const registro = await navigator.serviceWorker.getRegistration();
+                const suscripcion = await registro?.pushManager.getSubscription();
+                if (!suscripcion) return;
+
+                await fetch(`${API_URL}/push/desuscribir`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ endpoint: suscripcion.endpoint })
+                });
+                await suscripcion.unsubscribe();
+            } catch (error) {
+                console.error('No se pudo desactivar las notificaciones push.', error);
+            }
+        }
+
         // Tarifas por distancia
 function obtenerDesgloseTarifa(distanciaKm) {
     const distancia = Number(distanciaKm) || 0;
@@ -961,6 +1038,7 @@ async function crearPedidoConTarifa() {
             if (esRepartidor) {
                 mostrarSeccionPorCodigo('miRuta');
                 iniciarActualizacionMiRuta();
+                suscribirseANotificacionesPush();
                 return;
             }
 
@@ -2346,6 +2424,7 @@ async function cargarHistorial() {
         function logout() {
             detenerSeguimientoGpsRepartidor();
             detenerActualizacionMiRuta();
+            if (esRepartidor) desuscribirseDeNotificacionesPush();
             borrarSesion();
             usuarioId = null;
             usuarioTelefono = null;
