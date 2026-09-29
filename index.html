@@ -169,52 +169,103 @@
                 <!-- CREAR PEDIDO -->
                 <div id="seccionCrear" class="hidden">
                     <div class="card">
-                        <div class="instruccion" id="instruccionMapa">
-                            📍 Haz click en el mapa para marcar PUNTO DE RETIRO (🔴 rojo)
-                        </div>
-                        <div class="form-group buscador-direccion">
-                            <input id="buscarDireccionRetiro" type="text" autocomplete="off"
-                                placeholder="🔎 Buscar dirección de retiro (opcional)"
-                                oninput="buscarDireccion('retiro')">
-                            <div id="sugerenciasRetiro" class="sugerencias-direccion hidden"></div>
-                        </div>
-                        <button type="button" class="btn-editar-punto" style="width:100%; margin-bottom:10px;" onclick="usarUbicacionActualRetiro()">📍 Usar mi ubicación actual</button>
-                        <div id="mapaCrear"></div>
-                        <div id="puntoRetiro" class="punto-marcado hidden">
-                            ✅ Punto de RETIRO marcado
-                        </div>
-                        <div class="form-group" style="margin-top: 12px;">
-                            <label class="label" for="referenciaRetiro">¿Dónde retiramos?</label>
-                            <input id="referenciaRetiro" type="text" maxlength="255"
-                                placeholder="Ej.: Tienda de Candy, Av. San Blas y Monseñor Rodríguez">
+                        <div class="form-group">
+                            <label class="label">Tipo de Servicio</label>
+                            <select id="tipoServicio" onchange="actualizarFormularioServicio()">
+                                <option value="delivery">🚚 Delivery / Entrega</option>
+                                <option value="retiro">📦 Retiro / Recogida</option>
+                                <option value="encargo">🛒 Compra por Encargo</option>
+                            </select>
                         </div>
 
-                        <div class="instruccion" style="margin-top: 16px;">
-                            📍 Haz click en el mapa para marcar PUNTO DE ENTREGA (🟢 verde)
+                        <div class="form-group hidden" id="grupoMontoPedido">
+                            <label class="label">Monto de la compra (Gs.)</label>
+                            <input id="montoPedido" type="number" min="0" placeholder="0" onchange="calcularTarifa()">
                         </div>
-                        <div class="form-group buscador-direccion">
-                            <input id="buscarDireccionEntrega" type="text" autocomplete="off"
-                                placeholder="🔎 Buscar dirección de entrega (opcional)"
-                                oninput="buscarDireccion('entrega')">
-                            <div id="sugerenciasEntrega" class="sugerencias-direccion hidden"></div>
+
+                        <!-- PUNTO DE RETIRO: según el tipo de servicio, puede ser tu
+                             propia ubicación (se autocompleta con el GPS) o el punto
+                             que hay que cargar a mano. -->
+                        <div id="bloqueRetiro">
+                            <div class="instruccion" id="instruccionRetiro"></div>
+
+                            <div id="retiroConfirmadoGps" class="punto-confirmado-gps hidden">
+                                <span id="retiroConfirmadoTexto">✅ Retiramos en tu ubicación actual</span>
+                                <button type="button" class="btn-editar-punto" onclick="editarPunto('retiro')">Cambiar</button>
+                            </div>
+
+                            <div id="retiroCompletar" class="hidden">
+                                <div class="form-group buscador-direccion">
+                                    <input id="buscarDireccionRetiro" type="text" autocomplete="off"
+                                        placeholder="🔎 Buscar dirección de retiro"
+                                        oninput="buscarDireccion('retiro')">
+                                    <div id="sugerenciasRetiro" class="sugerencias-direccion hidden"></div>
+                                </div>
+                                <div class="form-group" style="margin-top:6px;">
+                                    <input id="linkUbicacionRetiro" type="text" autocomplete="off"
+                                        placeholder="📋 O pegá el link de ubicación que te compartieron">
+                                    <button type="button" class="btn-editar-punto" style="margin-top:6px; width:100%;" onclick="usarLinkUbicacion('retiro')">Usar esta ubicación</button>
+                                </div>
+                                <button type="button" class="btn-editar-punto" style="width:100%; margin-top:6px;" onclick="editarPunto('retiro')">📍 O marcar en el mapa</button>
+                            </div>
+
+                            <div id="puntoRetiro" class="punto-marcado hidden">
+                                ✅ Punto de RETIRO marcado
+                            </div>
+                            <div class="form-group" style="margin-top: 12px;">
+                                <label class="label" id="labelReferenciaRetiro" for="referenciaRetiro">¿Dónde retiramos?</label>
+                                <input id="referenciaRetiro" type="text" maxlength="255"
+                                    placeholder="Ej.: Tienda de Candy, Av. San Blas y Monseñor Rodríguez">
+                            </div>
                         </div>
-                        <div class="form-group" style="margin-top:6px;">
-                            <input id="linkUbicacionEntrega" type="text" autocomplete="off"
-                                placeholder="📋 O pegá el link de ubicación que te compartió tu cliente">
-                            <button type="button" class="btn-editar-punto" style="margin-top:6px; width:100%;" onclick="usarLinkUbicacion('entrega')">Usar esta ubicación</button>
+
+                        <!-- PUNTO DE ENTREGA: mismo patrón que el de retiro, solo que
+                             invertido (ver PUNTO_FIJO_POR_TIPO en el JS). -->
+                        <div id="bloqueEntrega" style="margin-top: 18px;">
+                            <div class="instruccion" id="instruccionEntrega"></div>
+
+                            <div id="entregaConfirmadoGps" class="punto-confirmado-gps hidden">
+                                <span id="entregaConfirmadoTexto">✅ Te lo entregamos en tu ubicación actual</span>
+                                <button type="button" class="btn-editar-punto" onclick="editarPunto('entrega')">Cambiar</button>
+                            </div>
+
+                            <div id="entregaCompletar" class="hidden">
+                                <div class="form-group buscador-direccion">
+                                    <input id="buscarDireccionEntrega" type="text" autocomplete="off"
+                                        placeholder="🔎 Buscar dirección de entrega"
+                                        oninput="buscarDireccion('entrega')">
+                                    <div id="sugerenciasEntrega" class="sugerencias-direccion hidden"></div>
+                                </div>
+                                <div class="form-group" style="margin-top:6px;">
+                                    <input id="linkUbicacionEntrega" type="text" autocomplete="off"
+                                        placeholder="📋 O pegá el link de ubicación que te compartió tu cliente">
+                                    <button type="button" class="btn-editar-punto" style="margin-top:6px; width:100%;" onclick="usarLinkUbicacion('entrega')">Usar esta ubicación</button>
+                                </div>
+                                <button type="button" class="btn-editar-punto" style="width:100%; margin-top:6px;" onclick="editarPunto('entrega')">📍 O marcar en el mapa</button>
+                            </div>
+
+                            <div id="puntoEntrega" class="punto-marcado hidden">
+                                ✅ Punto de ENTREGA marcado
+                            </div>
+                            <div class="form-group" style="margin-top: 12px;">
+                                <label class="label" id="labelReferenciaEntrega" for="referenciaEntrega">¿A quién le entregamos?</label>
+                                <input id="referenciaEntrega" type="text" maxlength="255"
+                                    placeholder="Ej.: Casa de Juan, Barrio San José, portón negro">
+                            </div>
                         </div>
-                        <div id="puntoEntrega" class="punto-marcado hidden">
-                            ✅ Punto de ENTREGA marcado
-                        </div>
-                        <div class="form-group" style="margin-top: 12px;">
-                            <label class="label" for="referenciaEntrega">¿Dónde entregamos?</label>
-                            <input id="referenciaEntrega" type="text" maxlength="255"
-                                placeholder="Ej.: Casa de Juan, Barrio San José, portón negro">
-                        </div>
+
                         <div class="form-group">
-                            <label class="label" for="telefonoDestinatario">Teléfono de contacto en la entrega (opcional)</label>
+                            <label class="label" id="labelTelefonoContacto" for="telefonoDestinatario">Teléfono de contacto de quien recibe (opcional)</label>
                             <input id="telefonoDestinatario" type="tel" inputmode="numeric" maxlength="9"
                                 placeholder="Ej.: 984768500">
+                        </div>
+
+                        <!-- El mapa queda oculto: solo se muestra si tocás "Cambiar" o
+                             "marcar en el mapa" para ese punto puntual, o cuando ya
+                             están los dos puntos listos y hay que ver el recorrido. -->
+                        <div id="envoltorioMapaCrear" class="hidden">
+                            <div class="instruccion" id="instruccionMapa"></div>
+                            <div id="mapaCrear"></div>
                         </div>
 
                         <div class="acciones-puntos">
@@ -222,20 +273,6 @@
                             <button type="button" class="btn-editar-punto" onclick="editarPunto('entrega')">Editar entrega</button>
                             <button type="button" class="btn-limpiar-puntos" onclick="limpiarPuntos()">Limpiar</button>
                         </div>
-
-                       <div class="form-group" style="margin-top: 16px;">
-    <label class="label">Tipo de Servicio</label>
-    <select id="tipoServicio" onchange="actualizarFormularioServicio()">
-        <option value="delivery">🚚 Delivery / Entrega</option>
-        <option value="retiro">📦 Retiro / Recogida</option>
-        <option value="encargo">🛒 Compra por Encargo</option>
-    </select>
-</div>
-
-<div class="form-group hidden" id="grupoMontoPedido">
-    <label class="label">Monto de la compra (Gs.)</label>
-    <input id="montoPedido" type="number" min="0" placeholder="0" onchange="calcularTarifa()">
-</div>
 
 <!-- DESGLOSE DE TARIFA -->
 <div class="desglose-box hidden" id="desgloseTarifa">
@@ -397,6 +434,18 @@
         let marcadorRetiro = null;
         let marcadorEntrega = null;
         let modoEdicionPunto = null;
+
+        // Según el tipo de servicio, uno de los dos puntos es casi siempre la
+        // propia ubicación de quien carga el pedido: en Delivery es el
+        // vendedor, que retira desde donde está parado; en Retiro/Recogida y
+        // Compra por Encargo es quien recibe lo que se retira o se compra. Ese
+        // punto se completa solo con el GPS; el otro es el que hay que cargar
+        // a mano (buscando, marcando en el mapa, pegando un link, o dejando un
+        // teléfono de contacto).
+        const PUNTO_FIJO_POR_TIPO = { delivery: 'retiro', retiro: 'entrega', encargo: 'entrega' };
+        let ubicacionActualCliente = null;
+        let retiroEsAutomatico = false;
+        let entregaEsAutomatico = false;
         let esRepartidor = false;
         let usuarioRol = 'cliente';
         let seguimientoGpsId = null;
@@ -667,7 +716,11 @@ pruebasTarifa.forEach(prueba => {
         document.getElementById('montoPedido').value = '';
     }
 
-    calcularTarifa();
+    // Cambiar el tipo de servicio puede invertir cuál punto es el tuyo (el
+    // que se autocompleta con el GPS) y cuál hay que cargar a mano, así que
+    // reiniciamos los puntos para no dejar uno mal asignado del tipo
+    // anterior. limpiarPuntos() ya vuelve a aplicar la configuración nueva.
+    limpiarPuntos();
 }
 
 // Calcular tarifa según el tipo de servicio
@@ -819,6 +872,13 @@ async function crearPedidoConTarifa() {
 
             if (marcadorRetiro) mapaCrear.removeLayer(marcadorRetiro);
             if (marcadorEntrega) mapaCrear.removeLayer(marcadorEntrega);
+            marcadorRetiro = null;
+            marcadorEntrega = null;
+            retiroEsAutomatico = false;
+            entregaEsAutomatico = false;
+            document.getElementById('envoltorioMapaCrear').classList.add('hidden');
+            document.getElementById('retiroConfirmadoGps').classList.add('hidden');
+            document.getElementById('entregaConfirmadoGps').classList.add('hidden');
 
             // Volver a la lista sin depender del evento del botón.
             document.getElementById('seccionChat').classList.add('hidden');
@@ -1692,7 +1752,10 @@ async function crearPedidoConTarifa() {
             } else if (seccion === 'crear') {
                 document.getElementById('seccionCrear').classList.remove('hidden');
                 event.target.classList.add('active');
-                setTimeout(inicializarMapaCrear, 100);
+                setTimeout(() => {
+                    inicializarMapaCrear();
+                    aplicarConfiguracionTipoServicio();
+                }, 100);
             } else if (seccion === 'repartidores') {
                 document.getElementById('seccionRepartidores').classList.remove('hidden');
                 if (event && event.target) event.target.classList.add('active');
@@ -2329,10 +2392,20 @@ async function cargarHistorial() {
                 document.getElementById('puntoEntrega').classList.remove('hidden');
             }
 
+            // Si este punto se había completado solo con el GPS y ahora lo
+            // estás corrigiendo a mano (tocaste "Cambiar" o "Editar"), a
+            // partir de acá lo tratamos como editado manualmente, para que
+            // no se vuelva a pisar con la ubicación automática.
+            if (modoEdicionPunto === tipo) {
+                if (esRetiro) retiroEsAutomatico = false; else entregaEsAutomatico = false;
+                document.getElementById(esRetiro ? 'retiroConfirmadoGps' : 'entregaConfirmadoGps').classList.add('hidden');
+            }
+
             modoEdicionPunto = null;
             actualizarInstruccionMapa();
 
             if (puntoRetiro && puntoEntrega) {
+                mostrarMapaCrear();
                 setTimeout(calcularTarifa, 300);
             }
         }
@@ -2384,42 +2457,159 @@ async function cargarHistorial() {
             document.getElementById(idCampo).value = `📍 Ubicación pegada (${lat.toFixed(5)}, ${lng.toFixed(5)})`;
         }
 
-        // El cliente puede usar el GPS de su celular para marcar el PUNTO DE
-        // RETIRO directamente en su ubicación actual, sin tener que buscar la
-        // dirección a mano (útil cuando retira desde donde está parado).
-        function usarUbicacionActualRetiro() {
-            if (!navigator.geolocation) {
-                alert('Este dispositivo no permite obtener la ubicación GPS.');
-                return;
+        // ---- Autocompletar el punto que es "tuyo" según el tipo de servicio ----
+
+        function tipoServicioActual() {
+            return document.getElementById('tipoServicio').value;
+        }
+
+        function puntoFijoActual() {
+            return PUNTO_FIJO_POR_TIPO[tipoServicioActual()] || 'retiro';
+        }
+
+        function puntoVariableActual() {
+            return puntoFijoActual() === 'retiro' ? 'entrega' : 'retiro';
+        }
+
+        // Pide el GPS una sola vez por visita a "Nuevo pedido" y reutiliza el
+        // resultado para no pedir el permiso de nuevo cada vez que cambia el
+        // tipo de servicio.
+        function obtenerUbicacionActualCliente() {
+            if (ubicacionActualCliente) return Promise.resolve(ubicacionActualCliente);
+
+            return new Promise((resolve, reject) => {
+                if (!navigator.geolocation) {
+                    reject(new Error('Este dispositivo no permite obtener ubicación GPS.'));
+                    return;
+                }
+
+                navigator.geolocation.getCurrentPosition(
+                    posicion => {
+                        ubicacionActualCliente = {
+                            lat: posicion.coords.latitude,
+                            lng: posicion.coords.longitude
+                        };
+                        resolve(ubicacionActualCliente);
+                    },
+                    () => reject(new Error('No pudimos obtener tu ubicación. Revisá el permiso de ubicación del navegador.')),
+                    { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 }
+                );
+            });
+        }
+
+        // Ajusta instrucciones, etiquetas y qué punto se autocompleta según el
+        // tipo de servicio elegido (ver PUNTO_FIJO_POR_TIPO más arriba).
+        function aplicarConfiguracionTipoServicio() {
+            const tipo = tipoServicioActual();
+            const fijo = puntoFijoActual();
+            const variable = puntoVariableActual();
+
+            const textos = {
+                retiro: {
+                    instruccionVariable: '🔴 Buscá la dirección, marcá en el mapa, pegá un link de ubicación, o dejá el teléfono de ' +
+                        (tipo === 'encargo' ? 'la tienda donde hay que comprar.' : 'la tienda, oficina o persona de la que hay que retirar.'),
+                    labelReferencia: tipo === 'encargo' ? '¿En qué local compramos?' : '¿De dónde retiramos?',
+                    labelTelefono: tipo === 'encargo' ? 'Teléfono de contacto del local (opcional)' : 'Teléfono de contacto en el retiro (opcional)'
+                },
+                entrega: {
+                    instruccionVariable: '🟢 Buscá la dirección, marcá en el mapa, pegá un link de ubicación, o dejá el teléfono de quien recibe el pedido.',
+                    labelReferencia: '¿A quién le entregamos?',
+                    labelTelefono: 'Teléfono de contacto de quien recibe (opcional)'
+                }
+            };
+
+            const retiroEsFijo = fijo === 'retiro';
+            document.getElementById('retiroCompletar').classList.toggle('hidden', retiroEsFijo);
+            document.getElementById('labelReferenciaRetiro').textContent = textos.retiro.labelReferencia;
+            if (!retiroEsFijo) {
+                document.getElementById('instruccionRetiro').textContent = textos.retiro.instruccionVariable;
             }
 
-            navigator.geolocation.getCurrentPosition(
-                posicion => {
-                    const lat = posicion.coords.latitude;
-                    const lng = posicion.coords.longitude;
+            const entregaEsFijo = fijo === 'entrega';
+            document.getElementById('entregaCompletar').classList.toggle('hidden', entregaEsFijo);
+            document.getElementById('labelReferenciaEntrega').textContent = textos.entrega.labelReferencia;
+            if (!entregaEsFijo) {
+                document.getElementById('instruccionEntrega').textContent = textos.entrega.instruccionVariable;
+            }
 
-                    if (!mapaCrear) inicializarMapaCrear();
-                    colocarPunto('retiro', { lat, lng });
-                    mapaCrear.setView([lat, lng], 16);
+            // El teléfono de contacto siempre es del punto "variable" (el que
+            // no es tuyo): la persona o el local al que el repartidor puede
+            // necesitar llamar si no encuentra la dirección.
+            document.getElementById('labelTelefonoContacto').textContent = textos[variable].labelTelefono;
 
-                    document.getElementById('buscarDireccionRetiro').value =
-                        `📍 Mi ubicación actual (${lat.toFixed(5)}, ${lng.toFixed(5)})`;
-                },
-                () => alert('No pudimos obtener tu ubicación. Revisá que el permiso de ubicación esté activado para el navegador.'),
-                { enableHighAccuracy: true, timeout: 10000, maximumAge: 30000 }
-            );
+            autocompletarPuntoFijo(fijo);
+        }
+
+        // Completa en silencio el punto que te corresponde a vos según el
+        // tipo de servicio, usando el GPS del celular. Si el punto ya fue
+        // editado a mano, o el GPS falla, deja que se cargue como si fuera
+        // el punto variable, para no dejar al cliente trabado.
+        async function autocompletarPuntoFijo(rol) {
+            const esRetiro = rol === 'retiro';
+            const idInstruccion = esRetiro ? 'instruccionRetiro' : 'instruccionEntrega';
+            const idCompletar = esRetiro ? 'retiroCompletar' : 'entregaCompletar';
+            const idConfirmado = esRetiro ? 'retiroConfirmadoGps' : 'entregaConfirmadoGps';
+            const yaAutomatico = esRetiro ? retiroEsAutomatico : entregaEsAutomatico;
+            const yaHayPunto = esRetiro ? puntoRetiro : puntoEntrega;
+
+            if (yaHayPunto && yaAutomatico) {
+                actualizarTarjetaConfirmacion(rol);
+                return;
+            }
+            if (yaHayPunto && !yaAutomatico) return; // ya lo cargaron a mano
+
+            document.getElementById(idInstruccion).textContent = '📡 Obteniendo tu ubicación actual...';
+            document.getElementById(idConfirmado).classList.add('hidden');
+
+            try {
+                const ubicacion = await obtenerUbicacionActualCliente();
+                if (!mapaCrear) inicializarMapaCrear();
+                colocarPunto(rol, ubicacion);
+
+                if (esRetiro) retiroEsAutomatico = true; else entregaEsAutomatico = true;
+                document.getElementById(esRetiro ? 'puntoRetiro' : 'puntoEntrega').classList.add('hidden');
+                actualizarTarjetaConfirmacion(rol);
+            } catch (error) {
+                // No se pudo obtener el GPS: mostramos el formulario completo
+                // para que lo cargue a mano, como si fuera el punto variable.
+                document.getElementById(idCompletar).classList.remove('hidden');
+                document.getElementById(idInstruccion).textContent =
+                    '⚠️ No pudimos obtener tu ubicación automáticamente. Buscá la dirección, marcá en el mapa, o pegá un link.';
+            }
+        }
+
+        function actualizarTarjetaConfirmacion(rol) {
+            const esRetiro = rol === 'retiro';
+            const texto = esRetiro ? 'Retiramos en tu ubicación actual' : 'Te lo entregamos en tu ubicación actual';
+
+            document.getElementById(esRetiro ? 'instruccionRetiro' : 'instruccionEntrega').textContent = `✅ ${texto}.`;
+            document.getElementById(esRetiro ? 'retiroConfirmadoTexto' : 'entregaConfirmadoTexto').textContent = `✅ ${texto}`;
+            document.getElementById(esRetiro ? 'retiroConfirmadoGps' : 'entregaConfirmadoGps').classList.remove('hidden');
+        }
+
+        // El mapa arranca oculto: solo se muestra para marcar o corregir un
+        // punto a mano, o para ver el recorrido una vez que ya están los dos
+        // puntos. invalidateSize() es necesario porque Leaflet calcula mal el
+        // tamaño de un mapa que estuvo con display:none.
+        function mostrarMapaCrear() {
+            if (!mapaCrear) inicializarMapaCrear();
+            document.getElementById('envoltorioMapaCrear').classList.remove('hidden');
+            setTimeout(() => mapaCrear.invalidateSize(), 50);
         }
 
         function editarPunto(tipo) {
             modoEdicionPunto = tipo;
+            mostrarMapaCrear();
             actualizarInstruccionMapa();
-            mapaCrear.getContainer().scrollIntoView({ behavior: 'smooth', block: 'center' });
+            document.getElementById('envoltorioMapaCrear').scrollIntoView({ behavior: 'smooth', block: 'center' });
         }
 
         function limpiarPuntos() {
             puntoRetiro = null;
             puntoEntrega = null;
             modoEdicionPunto = null;
+            retiroEsAutomatico = false;
+            entregaEsAutomatico = false;
 
             if (marcadorRetiro) mapaCrear.removeLayer(marcadorRetiro);
             if (marcadorEntrega) mapaCrear.removeLayer(marcadorEntrega);
@@ -2429,7 +2619,11 @@ async function cargarHistorial() {
             document.getElementById('puntoRetiro').classList.add('hidden');
             document.getElementById('puntoEntrega').classList.add('hidden');
             document.getElementById('desgloseTarifa').classList.add('hidden');
+            document.getElementById('envoltorioMapaCrear').classList.add('hidden');
+            document.getElementById('retiroConfirmadoGps').classList.add('hidden');
+            document.getElementById('entregaConfirmadoGps').classList.add('hidden');
             actualizarInstruccionMapa();
+            aplicarConfiguracionTipoServicio();
         }
 
         function inicializarMapaCrear() {

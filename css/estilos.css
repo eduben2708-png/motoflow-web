@@ -809,6 +809,32 @@ button:disabled { opacity: 0.5; cursor: not-allowed; transform: none; box-shadow
     font-weight: 600;
 }
 
+.punto-confirmado-gps {
+    background: var(--color-primary-soft);
+    padding: var(--space-3);
+    border-radius: var(--radius-sm);
+    margin-bottom: var(--space-3);
+    border-left: 3px solid var(--color-primary);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-2);
+    flex-wrap: wrap;
+}
+
+.punto-confirmado-gps span {
+    font-size: 13px;
+    font-weight: 600;
+    color: #93c5fd;
+}
+
+.punto-confirmado-gps button {
+    width: auto;
+    margin: 0;
+    padding: 6px 12px;
+    font-size: 12px;
+}
+
 .acciones-puntos { display: flex; gap: var(--space-2); margin: var(--space-3) 0 var(--space-4); flex-wrap: wrap; }
 .acciones-puntos button { width: auto; flex: 1; min-width: 110px; margin: 0; padding: 10px 8px; font-size: 12px; }
 
