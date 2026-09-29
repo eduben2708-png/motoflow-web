@@ -703,11 +703,11 @@ async function calcularTarifa() {
 
 // Crear pedido con tarifa
 async function crearPedidoConTarifa() {
-    if (!dentroDelHorarioDeServicio()) {
-        alert('Fuera de horario de atención: el servicio funciona de 07:30 a 17:30 hs.');
-        return;
-    }
-
+    // El bloqueo real de horario vive en el servidor (routes/pedidos.js),
+    // detrás de la variable HORARIO_ATENCION_ACTIVO en Render: mientras no
+    // esté prendida (todavía en pruebas), acá no se frena nada, y cuando se
+    // prenda para el lanzamiento, el servidor va a rechazar el pedido igual
+    // aunque este chequeo de acá no exista.
     if (!puntoRetiro || !puntoEntrega) {
         alert('Marca ambos puntos en el mapa');
         return;
