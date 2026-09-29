@@ -32,7 +32,7 @@
         <!-- LOGIN SCREEN -->
         <div id="loginScreen" class="login-screen">
             <img src="Logo.jpeg" alt="JM Motocourier" class="logo-img">
-            <div class="horario-servicio">🕐 Servicio activo de 07:00 a 18:00 hs</div>
+            <div class="horario-servicio">🕐 Servicio activo de 07:30 a 17:30 hs</div>
             <div class="card">
                 <div id="paso1">
                     <div class="form-group">
@@ -564,6 +564,23 @@ function calcularRecargoCentro(lat, lng) {
         : 0;
 }
 
+// Horario de atención (07:30 a 17:30, hora de Paraguay). Esto es solo para
+// avisarle al cliente al toque, sin esperar la respuesta del servidor: el
+// servidor vuelve a validar esto mismo al crear el pedido, así que aunque
+// el reloj del celular esté mal puesto, el pedido igual queda bloqueado.
+function dentroDelHorarioDeServicio() {
+    const horaParaguay = new Intl.DateTimeFormat('en-US', {
+        timeZone: 'America/Asuncion',
+        hour: '2-digit',
+        minute: '2-digit',
+        hourCycle: 'h23'
+    }).formatToParts(new Date());
+    const hora = Number(horaParaguay.find(p => p.type === 'hour').value);
+    const minuto = Number(horaParaguay.find(p => p.type === 'minute').value);
+    const minutosActuales = hora * 60 + minuto;
+    return minutosActuales >= (7 * 60 + 30) && minutosActuales < (17 * 60 + 30);
+}
+
 // Pruebas automáticas: ver resultados en F12 > Console
 const pruebasTarifa = [
     { km: 3, esperado: 20000 },
@@ -686,6 +703,11 @@ async function calcularTarifa() {
 
 // Crear pedido con tarifa
 async function crearPedidoConTarifa() {
+    if (!dentroDelHorarioDeServicio()) {
+        alert('Fuera de horario de atención: el servicio funciona de 07:30 a 17:30 hs.');
+        return;
+    }
+
     if (!puntoRetiro || !puntoEntrega) {
         alert('Marca ambos puntos en el mapa');
         return;
