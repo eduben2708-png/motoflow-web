@@ -256,6 +256,11 @@
             <span id="desgloseComision" style="color: #fbbf24;">0</span>
         </div>
 
+        <div class="desglose-row hidden" id="filaRecargoCentro">
+            <span>Recargo zona céntrica:</span>
+            <span id="desgloseRecargoCentro" style="color: #fbbf24;">0</span>
+        </div>
+
         <div class="desglose-total">
             TOTAL A PAGAR: <span id="desgloseTotal">0</span> Gs.
         </div>
@@ -533,6 +538,32 @@ function obtenerTarifa(distanciaKm) {
     return obtenerDesgloseTarifa(distanciaKm).tarifaMotoCourier;
 }
 
+// Recargo por retiro en el centro de Ciudad del Este: mismo punto y radio
+// que usa el servidor (ver esRetiroEnElCentro en motoflow-backend/routes/pedidos.js).
+// Se calcula acá solo para mostrarlo en la vista previa antes de crear el
+// pedido; el monto que realmente se cobra lo decide el servidor.
+const CENTRO_CDE = { lat: -25.5097, lng: -54.6111 };
+const RADIO_CENTRO_KM = 1;
+const RECARGO_CENTRO = 5000;
+
+function distanciaHaversineKm(lat1, lng1, lat2, lng2) {
+    const radioTierraKm = 6371;
+    const aRad = grados => grados * Math.PI / 180;
+    const diferenciaLat = aRad(lat2 - lat1);
+    const diferenciaLng = aRad(lng2 - lng1);
+    const a = Math.sin(diferenciaLat / 2) ** 2 +
+        Math.cos(aRad(lat1)) * Math.cos(aRad(lat2)) *
+        Math.sin(diferenciaLng / 2) ** 2;
+    return radioTierraKm * (2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)));
+}
+
+function calcularRecargoCentro(lat, lng) {
+    if (typeof lat !== 'number' || typeof lng !== 'number') return 0;
+    return distanciaHaversineKm(lat, lng, CENTRO_CDE.lat, CENTRO_CDE.lng) <= RADIO_CENTRO_KM
+        ? RECARGO_CENTRO
+        : 0;
+}
+
 // Pruebas automáticas: ver resultados en F12 > Console
 const pruebasTarifa = [
     { km: 3, esperado: 20000 },
@@ -629,11 +660,12 @@ async function calcularTarifa() {
 
     const desgloseViaje = obtenerDesgloseTarifa(distanciaKm);
     const tarifaMotoflow = desgloseViaje.tarifaMotoCourier;
+    const recargoCentro = calcularRecargoCentro(puntoRetiro.lat, puntoRetiro.lng);
 
     // Solo Compra por Encargo cobra el producto más 2% de comisión.
     const esEncargo = tipoServicio === 'encargo';
     const comisionEncargo = esEncargo ? Math.round(montoCompra * 0.02) : 0;
-    const totalCobro = tarifaMotoflow + (esEncargo ? montoCompra + comisionEncargo : 0);
+    const totalCobro = tarifaMotoflow + recargoCentro + (esEncargo ? montoCompra + comisionEncargo : 0);
 
     document.getElementById('distanciaKm').textContent = distanciaKm;
     document.getElementById('desgloseTarifaBase').textContent = desgloseViaje.tarifaBase.toLocaleString('es-PY');
@@ -642,11 +674,13 @@ async function calcularTarifa() {
     document.getElementById('desgloseTarifaMoto').textContent = tarifaMotoflow.toLocaleString('es-PY');
     document.getElementById('desgloseMonto').textContent = montoCompra.toLocaleString('es-PY');
     document.getElementById('desgloseComision').textContent = comisionEncargo.toLocaleString('es-PY');
+    document.getElementById('desgloseRecargoCentro').textContent = recargoCentro.toLocaleString('es-PY');
     document.getElementById('desgloseTotal').textContent = totalCobro.toLocaleString('es-PY');
 
     document.getElementById('filaMontoCompra').classList.toggle('hidden', !esEncargo);
     document.getElementById('filaComision').classList.toggle('hidden', !esEncargo);
     document.getElementById('filaKmAdicionales').classList.toggle('hidden', desgloseViaje.kmAdicionales <= 0);
+    document.getElementById('filaRecargoCentro').classList.toggle('hidden', recargoCentro <= 0);
     document.getElementById('desgloseTarifa').classList.remove('hidden');
 }
 
@@ -685,11 +719,12 @@ async function crearPedidoConTarifa() {
     }
 
     const tarifaMotoflow = obtenerTarifa(distanciaKm);
+    const recargoCentro = calcularRecargoCentro(puntoRetiro.lat, puntoRetiro.lng);
     const comisionEncargo = tipoServicio === 'encargo'
         ? Math.round(montoCompra * 0.02)
         : 0;
 
-    const totalCobro = tarifaMotoflow +
+    const totalCobro = tarifaMotoflow + recargoCentro +
         (tipoServicio === 'encargo' ? montoCompra + comisionEncargo : 0);
 
     try {
@@ -728,7 +763,12 @@ async function crearPedidoConTarifa() {
             const mensajeAsignacion = data.repartidor_id
                 ? ` Repartidor #${data.repartidor_id} asignado automáticamente.`
                 : ' Quedó pendiente porque no hay repartidores con GPS activo.';
-            alert(`Pedido creado. Total a pagar: ${totalCobro.toLocaleString('es-PY')} Gs.${mensajeAsignacion}`);
+            // Se usa el total que calculó el servidor (data.monto_total) en vez
+            // del estimado local: es la fuente de verdad y evita que quede
+            // desactualizado si el servidor suma algún recargo (como el del
+            // centro) que la vista previa no haya calculado igual.
+            const totalReal = Number.isFinite(data.monto_total) ? data.monto_total : totalCobro;
+            alert(`Pedido creado. Total a pagar: ${totalReal.toLocaleString('es-PY')} Gs.${mensajeAsignacion}`);
 
             puntoRetiro = null;
             puntoEntrega = null;
