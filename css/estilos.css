@@ -340,43 +340,67 @@ button:disabled { opacity: 0.5; cursor: not-allowed; transform: none; box-shadow
 }
 .btn-logout:hover { background: var(--color-danger); color: #fff; border-color: var(--color-danger); }
 
+/* Barra de navegación fija abajo, estilo app de celular: un ícono y una
+   palabra corta por botón, siempre visible sin tener que deslizar. */
 .nav-buttons {
     display: flex;
-    gap: var(--space-2);
-    padding: var(--space-3);
+    justify-content: space-around;
+    align-items: stretch;
+    gap: 2px;
+    padding: var(--space-2) var(--space-2) calc(var(--space-2) + env(safe-area-inset-bottom, 0px));
     background: var(--color-bg-elevated);
-    border-bottom: 1px solid var(--color-border);
-    overflow-x: auto;
-    scrollbar-width: thin;
+    border-top: 1px solid var(--color-border);
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 20;
+    box-shadow: 0 -2px 12px rgba(0, 0, 0, 0.25);
 }
 
 .nav-btn {
     flex: 1;
-    min-width: max-content;
-    padding: 10px 14px;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    padding: 6px 2px;
     background: transparent;
     color: var(--text-secondary);
-    border: 1px solid var(--color-border-strong);
-    border-radius: var(--radius-pill);
+    border: none;
+    border-radius: var(--radius-sm);
     cursor: pointer;
-    font-size: 12px;
+    font-size: 10px;
     font-weight: 600;
     white-space: nowrap;
     box-shadow: none;
     margin-top: 0;
     transition: all var(--transition-fast);
 }
-.nav-btn:hover { color: var(--text-primary); border-color: var(--color-primary); transform: none; box-shadow: none; }
+/* pointer-events: none para que el click siempre "pegue" en el <button>
+   (event.target), no en el ícono o la palabra de adentro — el código que
+   marca el botón activo depende de eso. */
+.nav-icon { font-size: 20px; line-height: 1; pointer-events: none; }
+.nav-label {
+    font-size: 10px;
+    line-height: 1.1;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    pointer-events: none;
+}
+.nav-btn:hover { color: var(--text-primary); transform: none; box-shadow: none; }
 .nav-btn.active {
-    background: var(--color-primary);
-    color: #fff;
-    border-color: var(--color-primary);
+    background: var(--color-primary-soft);
+    color: var(--color-primary);
 }
 
-.content { flex: 1; overflow-y: auto; padding: var(--space-5); }
+.content { flex: 1; overflow-y: auto; padding: var(--space-5); padding-bottom: calc(var(--space-5) + 78px); }
 
 @media (min-width: 640px) {
-    .content { padding: var(--space-6); }
+    .content { padding: var(--space-6); padding-bottom: calc(var(--space-6) + 78px); }
 }
 
 /* =========================================================================

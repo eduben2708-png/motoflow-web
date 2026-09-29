@@ -111,14 +111,24 @@
             </div>
 
             <div class="nav-buttons">
-                <button id="navPedidos" class="nav-btn active" onclick="mostrarSeccion('pedidos')">Pedidos</button>
-                <button id="navChat" class="nav-btn" onclick="mostrarSeccion('chat')">Chat</button>
-                <button id="navMapa" class="nav-btn" onclick="mostrarSeccion('mapa')">Mapa</button>
-                <button id="navCrear" class="nav-btn" onclick="mostrarSeccion('crear')">+ Nuevo</button>
-                <button id="navRepartidores" class="nav-btn" onclick="mostrarSeccion('repartidores')">Repartidores</button>
-                <button id="navAdmin" class="nav-btn" onclick="mostrarSeccion('admin')">Administrar</button>
-                <button id="navMiRuta" class="nav-btn hidden" onclick="mostrarSeccion('miRuta')">Mi ruta</button>
-                <button id="navHistorial" class="nav-btn" onclick="mostrarSeccion('historial')">Historial</button>
+                <button id="navPedidos" class="nav-btn active" onclick="mostrarSeccion('pedidos')">
+                    <span class="nav-icon">📦</span><span class="nav-label">Pedidos</span>
+                </button>
+                <button id="navCrear" class="nav-btn" onclick="mostrarSeccion('crear')">
+                    <span class="nav-icon">➕</span><span class="nav-label">Nuevo</span>
+                </button>
+                <button id="navRepartidores" class="nav-btn" onclick="mostrarSeccion('repartidores')">
+                    <span class="nav-icon">🏍️</span><span class="nav-label">Repartidores</span>
+                </button>
+                <button id="navAdmin" class="nav-btn" onclick="mostrarSeccion('admin')">
+                    <span class="nav-icon">⚙️</span><span class="nav-label">Admin</span>
+                </button>
+                <button id="navMiRuta" class="nav-btn hidden" onclick="mostrarSeccion('miRuta')">
+                    <span class="nav-icon">🗺️</span><span class="nav-label">Mi ruta</span>
+                </button>
+                <button id="navHistorial" class="nav-btn" onclick="mostrarSeccion('historial')">
+                    <span class="nav-icon">🕓</span><span class="nav-label">Historial</span>
+                </button>
             </div>
 
             <div class="content">
@@ -143,7 +153,10 @@
 
                 <!-- MAPA SEGUIMIENTO -->
                 <div id="seccionMapa" class="hidden">
-                    <div class="mapa-info">📍 Ubicación en tiempo real del repartidor</div>
+                    <div class="chat-header">
+                        <button type="button" onclick="cerrarMapaPedido()" style="width:auto; margin:0; padding:8px 14px; background:#666;">← Volver</button>
+                        <span>📍 Ubicación en tiempo real del repartidor</span>
+                    </div>
                     <div id="mapa"></div>
                     <div id="mapaDetalles" class="mapa-info"></div>
                 </div>
@@ -372,6 +385,7 @@
         let mapaCrear = null;
         let marcadorRepartidor = null;
         let pedidoActivoChat = null;
+        let pedidoActivoMapa = null;
         let intervaloChat = null;
         let mensajesConocidos = new Set();
         let primeraCargaChat = true;
@@ -1109,7 +1123,7 @@ async function crearPedidoConTarifa() {
         }
 
         function configurarMenuSegunCuenta() {
-    const botonesCliente = ['navPedidos', 'navChat', 'navMapa', 'navCrear'];
+    const botonesCliente = ['navPedidos', 'navCrear'];
 
     botonesCliente.forEach(id => document.getElementById(id).classList.toggle('hidden', esRepartidor));
     document.getElementById('navRepartidores').classList.toggle('hidden', esRepartidor || usuarioRol !== 'admin');
@@ -1146,7 +1160,11 @@ async function crearPedidoConTarifa() {
                                     <div style="color: #4caf50; font-weight: bold;">Total: Gs. ${Number(p.monto || 0).toLocaleString('es-PY')}</div>
                                     <div style="color: #2563eb; font-size: 12px;">${p.tipo}</div>
                                 </div>
-                                ${p.repartidor_id && !['entregado', 'cancelado'].includes(p.estado) ? `<button onclick="abrirChat(${p.id})" style="width: 100%; padding: 8px; background: #9c27b0; border: none; border-radius: 6px; color: #fff; cursor: pointer;">💬 Chat</button>` : ''}
+                                ${p.repartidor_id && !['entregado', 'cancelado'].includes(p.estado) ? `
+                                <div style="display:flex; gap:8px;">
+                                    <button onclick="abrirChat(${p.id})" style="flex:1; padding: 8px; background: #9c27b0; border: none; border-radius: 6px; color: #fff; cursor: pointer;">💬 Chat</button>
+                                    <button onclick="abrirMapaPedido(${p.id})" style="flex:1; padding: 8px; background: #2563eb; border: none; border-radius: 6px; color: #fff; cursor: pointer;">📍 Ver ubicación</button>
+                                </div>` : ''}
                             </div>
                         `;
                     });
@@ -1518,6 +1536,22 @@ async function crearPedidoConTarifa() {
             guardarPedidoAdmin(id, estado, repartidorId);
         }
 
+        // La ubicación en tiempo real ya no vive en un botón fijo del menú:
+        // aparece en la tarjeta del pedido, igual que el Chat, y solo
+        // cuando ese pedido puntual tiene sentido rastrearlo (asignado,
+        // no entregado). pedidoActivoMapa le dice a
+        // actualizarUbicacionRepartidor() cuál de los pedidos del cliente
+        // hay que mostrar en el mapa.
+        function abrirMapaPedido(pedidoId) {
+            pedidoActivoMapa = pedidoId;
+            mostrarSeccion('mapa');
+        }
+
+        function cerrarMapaPedido() {
+            pedidoActivoMapa = null;
+            mostrarSeccion(esRepartidor ? 'miRuta' : 'pedidos');
+        }
+
         function abrirChat(pedidoId) {
             pedidoActivoChat = pedidoId;
             mensajesConocidos = new Set();
@@ -1648,7 +1682,7 @@ async function crearPedidoConTarifa() {
                 }
             } else if (seccion === 'mapa') {
                 document.getElementById('seccionMapa').classList.remove('hidden');
-                event.target.classList.add('active');
+                if (event && event.target) event.target.classList.add('active');
                 setTimeout(inicializarMapa, 100);
             } else if (seccion === 'pedidos') {
                 document.getElementById('seccionPedidos').classList.remove('hidden');
@@ -2430,9 +2464,15 @@ async function cargarHistorial() {
                     return;
                 }
 
-                const pedidoAsignado = misPedidos
-                    .filter(p => p.repartidor_id && ['asignado', 'en_retiro', 'en_camino'].includes(p.estado))
-                    .sort((a, b) => b.id - a.id)[0];
+                const candidatos = misPedidos
+                    .filter(p => p.repartidor_id && ['asignado', 'en_retiro', 'en_camino'].includes(p.estado));
+
+                // Si se abrió el mapa desde un pedido puntual (botón "Ver
+                // ubicación" en la tarjeta), se sigue a ESE pedido. Si no
+                // hay uno elegido, se usa el más reciente en curso.
+                const pedidoAsignado = pedidoActivoMapa
+                    ? candidatos.find(p => p.id === pedidoActivoMapa) || null
+                    : candidatos.sort((a, b) => b.id - a.id)[0];
 
                 if (!pedidoAsignado) {
                     // Una vez que un pedido se entrega, ya no se debe poder ver la
