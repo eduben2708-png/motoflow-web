@@ -817,7 +817,6 @@ button:disabled { opacity: 0.5; cursor: not-allowed; transform: none; box-shadow
     border-left: 3px solid var(--color-primary);
     display: flex;
     align-items: center;
-    justify-content: space-between;
     gap: var(--space-2);
     flex-wrap: wrap;
 }
@@ -828,11 +827,20 @@ button:disabled { opacity: 0.5; cursor: not-allowed; transform: none; box-shadow
     color: #93c5fd;
 }
 
-.punto-confirmado-gps button {
-    width: auto;
-    margin: 0;
-    padding: 6px 12px;
-    font-size: 12px;
+.checkbox-ubicacion {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    cursor: pointer;
+    width: 100%;
+}
+
+.checkbox-ubicacion input[type="checkbox"] {
+    width: 20px;
+    height: 20px;
+    flex-shrink: 0;
+    accent-color: var(--color-primary);
+    cursor: pointer;
 }
 
 .acciones-puntos { display: flex; gap: var(--space-2); margin: var(--space-3) 0 var(--space-4); flex-wrap: wrap; }
