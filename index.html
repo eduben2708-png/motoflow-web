@@ -178,6 +178,7 @@
                                 oninput="buscarDireccion('retiro')">
                             <div id="sugerenciasRetiro" class="sugerencias-direccion hidden"></div>
                         </div>
+                        <button type="button" class="btn-editar-punto" style="width:100%; margin-bottom:10px;" onclick="usarUbicacionActualRetiro()">📍 Usar mi ubicación actual</button>
                         <div id="mapaCrear"></div>
                         <div id="puntoRetiro" class="punto-marcado hidden">
                             ✅ Punto de RETIRO marcado
@@ -2381,6 +2382,32 @@ async function cargarHistorial() {
 
             const idCampo = tipo === 'retiro' ? 'buscarDireccionRetiro' : 'buscarDireccionEntrega';
             document.getElementById(idCampo).value = `📍 Ubicación pegada (${lat.toFixed(5)}, ${lng.toFixed(5)})`;
+        }
+
+        // El cliente puede usar el GPS de su celular para marcar el PUNTO DE
+        // RETIRO directamente en su ubicación actual, sin tener que buscar la
+        // dirección a mano (útil cuando retira desde donde está parado).
+        function usarUbicacionActualRetiro() {
+            if (!navigator.geolocation) {
+                alert('Este dispositivo no permite obtener la ubicación GPS.');
+                return;
+            }
+
+            navigator.geolocation.getCurrentPosition(
+                posicion => {
+                    const lat = posicion.coords.latitude;
+                    const lng = posicion.coords.longitude;
+
+                    if (!mapaCrear) inicializarMapaCrear();
+                    colocarPunto('retiro', { lat, lng });
+                    mapaCrear.setView([lat, lng], 16);
+
+                    document.getElementById('buscarDireccionRetiro').value =
+                        `📍 Mi ubicación actual (${lat.toFixed(5)}, ${lng.toFixed(5)})`;
+                },
+                () => alert('No pudimos obtener tu ubicación. Revisá que el permiso de ubicación esté activado para el navegador.'),
+                { enableHighAccuracy: true, timeout: 10000, maximumAge: 30000 }
+            );
         }
 
         function editarPunto(tipo) {
