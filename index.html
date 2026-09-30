@@ -307,7 +307,7 @@
         </div>
 
         <div class="desglose-row hidden" id="filaComision">
-            <span>Comisión por encargo (2%):</span>
+            <span id="labelComisionEncargo">Comisión por encargo:</span>
             <span id="desgloseComision" style="color: #fbbf24;">0</span>
         </div>
 
@@ -321,6 +321,16 @@
         </div>
     </div>
 </div>
+
+                        <div class="form-group">
+                            <label class="checkbox-ubicacion">
+                                <input type="checkbox" id="pagoServicioRetiro">
+                                <span>Yo le pago la tarifa de servicio al repartidor cuando venga a retirar (no cobrársela al cliente)</span>
+                            </label>
+                            <div style="font-size:12px; color:var(--text-muted); margin-top:4px;">
+                                El repartidor va a ver que tiene que cobrarte esa tarifa a vos al retirar, en vez de cobrársela a quien recibe el pedido.
+                            </div>
+                        </div>
 
                         <button onclick="crearPedidoConTarifa()">Confirmar Pedido</button>
                     </div>
@@ -614,6 +624,12 @@ const CENTRO_CDE = { lat: -25.5097, lng: -54.6111 };
 const RADIO_CENTRO_KM = 1;
 const RECARGO_CENTRO = 5000;
 
+// Comisión por armar una Compra por Encargo: en 0 mientras se capta
+// clientela (mismo valor y mismo comentario que en el servidor, ver
+// PORCENTAJE_COMISION_ENCARGO en motoflow-backend/routes/pedidos.js). El
+// servidor es quien decide el monto real; esto es solo para la vista previa.
+const PORCENTAJE_COMISION_ENCARGO = 0;
+
 function distanciaHaversineKm(lat1, lng1, lat2, lng2) {
     const radioTierraKm = 6371;
     const aRad = grados => grados * Math.PI / 180;
@@ -751,9 +767,10 @@ async function calcularTarifa() {
     const tarifaMotoflow = desgloseViaje.tarifaMotoCourier;
     const recargoCentro = calcularRecargoCentro(puntoRetiro.lat, puntoRetiro.lng);
 
-    // Solo Compra por Encargo cobra el producto más 2% de comisión.
+    // Solo Compra por Encargo cobra el producto (la comisión está en 0 por
+    // ahora, ver PORCENTAJE_COMISION_ENCARGO más arriba).
     const esEncargo = tipoServicio === 'encargo';
-    const comisionEncargo = esEncargo ? Math.round(montoCompra * 0.02) : 0;
+    const comisionEncargo = esEncargo ? Math.round(montoCompra * PORCENTAJE_COMISION_ENCARGO) : 0;
     const totalCobro = tarifaMotoflow + recargoCentro + (esEncargo ? montoCompra + comisionEncargo : 0);
 
     document.getElementById('distanciaKm').textContent = distanciaKm;
@@ -762,12 +779,14 @@ async function calcularTarifa() {
         `${desgloseViaje.kmAdicionales.toLocaleString('es-PY')} km × 4.000 = ${desgloseViaje.costoKmAdicionales.toLocaleString('es-PY')}`;
     document.getElementById('desgloseTarifaMoto').textContent = tarifaMotoflow.toLocaleString('es-PY');
     document.getElementById('desgloseMonto').textContent = montoCompra.toLocaleString('es-PY');
+    document.getElementById('labelComisionEncargo').textContent =
+        `Comisión por encargo (${Math.round(PORCENTAJE_COMISION_ENCARGO * 100)}%):`;
     document.getElementById('desgloseComision').textContent = comisionEncargo.toLocaleString('es-PY');
     document.getElementById('desgloseRecargoCentro').textContent = recargoCentro.toLocaleString('es-PY');
     document.getElementById('desgloseTotal').textContent = totalCobro.toLocaleString('es-PY');
 
     document.getElementById('filaMontoCompra').classList.toggle('hidden', !esEncargo);
-    document.getElementById('filaComision').classList.toggle('hidden', !esEncargo);
+    document.getElementById('filaComision').classList.toggle('hidden', comisionEncargo <= 0);
     document.getElementById('filaKmAdicionales').classList.toggle('hidden', desgloseViaje.kmAdicionales <= 0);
     document.getElementById('filaRecargoCentro').classList.toggle('hidden', recargoCentro <= 0);
     document.getElementById('desgloseTarifa').classList.remove('hidden');
@@ -815,11 +834,17 @@ async function crearPedidoConTarifa() {
     const tarifaMotoflow = obtenerTarifa(distanciaKm);
     const recargoCentro = calcularRecargoCentro(puntoRetiro.lat, puntoRetiro.lng);
     const comisionEncargo = tipoServicio === 'encargo'
-        ? Math.round(montoCompra * 0.02)
+        ? Math.round(montoCompra * PORCENTAJE_COMISION_ENCARGO)
         : 0;
 
     const totalCobro = tarifaMotoflow + recargoCentro +
         (tipoServicio === 'encargo' ? montoCompra + comisionEncargo : 0);
+
+    // El vendedor tilda esto cuando ya le paga la tarifa de servicio al
+    // repartidor directo al momento del retiro, así que no corresponde
+    // cobrársela después a quien recibe el pedido (ver checkbox junto al
+    // botón "Confirmar Pedido").
+    const pagoServicioRetiro = document.getElementById('pagoServicioRetiro').checked;
 
     try {
         const res = await fetch(`${API_URL}/pedidos`, {
@@ -838,7 +863,8 @@ async function crearPedidoConTarifa() {
                 distancia_km: distanciaKm,
                 monto_compra: tipoServicio === 'encargo' ? montoCompra : 0,
                 tipo_pago: 'pendiente',
-                telefono_destinatario: telefonoDestinatario
+                telefono_destinatario: telefonoDestinatario,
+                pago_servicio_retiro: pagoServicioRetiro
             })
         });
 
@@ -870,6 +896,7 @@ async function crearPedidoConTarifa() {
             document.getElementById('referenciaRetiro').value = '';
             document.getElementById('referenciaEntrega').value = '';
             document.getElementById('telefonoDestinatario').value = '';
+            document.getElementById('pagoServicioRetiro').checked = false;
             document.getElementById('desgloseTarifa').classList.add('hidden');
             document.getElementById('puntoRetiro').classList.add('hidden');
             document.getElementById('puntoEntrega').classList.add('hidden');
@@ -1225,6 +1252,7 @@ async function crearPedidoConTarifa() {
                                     <div style="color: #4caf50; font-weight: bold;">Total: Gs. ${Number(p.monto || 0).toLocaleString('es-PY')}</div>
                                     <div style="color: #2563eb; font-size: 12px;">${p.tipo}</div>
                                 </div>
+                                ${p.pago_servicio_retiro ? `<div style="font-size:12px; color:#fbbf24; margin-bottom:8px;">🧾 Le pagás la tarifa de servicio al repartidor al retirar.</div>` : ''}
                                 ${p.repartidor_id && !['entregado', 'cancelado'].includes(p.estado) ? `
                                 <div style="display:flex; gap:8px;">
                                     <button onclick="abrirChat(${p.id})" style="flex:1; padding: 8px; background: #9c27b0; border: none; border-radius: 6px; color: #fff; cursor: pointer;">💬 Chat</button>
@@ -1536,6 +1564,7 @@ async function crearPedidoConTarifa() {
                                 <div class="admin-fila"><span>Servicio</span><strong>${pedido.tipo}</strong></div>
                                 <div class="admin-fila"><span>Distancia</span><strong>${pedido.distancia_km || 0} km</strong></div>
                                 <div class="admin-fila"><span>Total</span><strong>Gs. ${Number(pedido.monto || 0).toLocaleString('es-PY')}</strong></div>
+                                ${pedido.pago_servicio_retiro ? `<div class="admin-fila"><span>Tarifa de servicio</span><strong style="color:#fbbf24;">A cargo del vendedor, al retirar${pedido.forma_pago_servicio ? ` (${formatearTipoPago(pedido.forma_pago_servicio)})` : ''}</strong></div>` : ''}
                                 <div class="admin-control">
                                     <label>Repartidor</label>
                                     <select id="adminRepartidor-${pedido.id}">
@@ -1986,10 +2015,28 @@ async function crearPedidoConTarifa() {
                         coordenadasPedido(pedido, 'origen')
                     );
                     const tarifaServicio = Number(pedido.tarifa_servicio || 0);
+
+                    // Cuando el vendedor ya arregla el pago del servicio directo con
+                    // el repartidor al retirar, hay que cobrárselo A ÉL antes de irse
+                    // (no a quien recibe el pedido) y descontarlo de lo que se cobra
+                    // al entregar.
+                    const montoServicio = tarifaServicio + Number(pedido.recargo_centro || 0) + Number(pedido.comision_encargo || 0);
+                    const requierePagoServicio = pedido.pago_servicio_retiro && pedido.estado === 'en_retiro';
+
                     const botonAccion = pedido.estado === 'asignado'
                         ? `<button onclick="actualizarEstadoMiPedido(${pedido.id}, 'en_retiro', null, '${coordenadasPedido(pedido, 'origen')}')">Iniciar viaje al retiro</button>`
                         : pedido.estado === 'en_retiro'
-                            ? `<button onclick="actualizarEstadoMiPedido(${pedido.id}, 'en_camino', null, '${coordenadasPedido(pedido, 'destino')}')">Paquete retirado</button>`
+                            ? (requierePagoServicio
+                                ? `
+                                <select id="pagoServicio-${pedido.id}" style="margin:0; padding:10px; font-size:13px;">
+                                    <option value="">¿Cómo te pagó el vendedor el servicio?</option>
+                                    <option value="efectivo">Efectivo</option>
+                                    <option value="transferencia">Transferencia</option>
+                                    <option value="qr">Pago por QR</option>
+                                </select>
+                                <button class="btn-entregar" onclick="retirarPedido(${pedido.id}, '${coordenadasPedido(pedido, 'destino')}')">Paquete retirado</button>
+                            `
+                                : `<button onclick="actualizarEstadoMiPedido(${pedido.id}, 'en_camino', null, '${coordenadasPedido(pedido, 'destino')}')">Paquete retirado</button>`)
                             : `
                             <select id="pagoFinal-${pedido.id}" style="margin:0; padding:10px; font-size:13px;">
                                 <option value="">¿Cómo abonó el cliente?</option>
@@ -2007,6 +2054,16 @@ async function crearPedidoConTarifa() {
                         ? 'Navegar al retiro'
                         : 'Navegar a la entrega';
 
+                    const avisoServicio = !pedido.pago_servicio_retiro
+                        ? ''
+                        : (['asignado', 'en_retiro'].includes(pedido.estado)
+                            ? `<div style="color:#ef4444; font-weight:700; margin-top:4px;">⚠️ Cobrarle Gs. ${montoServicio.toLocaleString('es-PY')} de tarifa de servicio AL VENDEDOR, antes de irte con el paquete.</div>`
+                            : `<div style="color:#4ade80; font-weight:700; margin-top:4px;">✅ Servicio ya cobrado al vendedor${pedido.forma_pago_servicio ? ` (${formatearTipoPago(pedido.forma_pago_servicio)})` : ''}.</div>`);
+
+                    const montoACobrarEntrega = pedido.pago_servicio_retiro
+                        ? Math.max(0, Number(pedido.monto || 0) - montoServicio)
+                        : Number(pedido.monto || 0);
+
                     return `
                         <div class="pedido-card">
                             <div class="pedido-header">
@@ -2021,7 +2078,8 @@ async function crearPedidoConTarifa() {
                                 <div>🧭 <strong>Distancia aprox. hasta el retiro:</strong> ${distanciaHastaRetiro === null ? 'Activá el GPS para calcularla' : `${distanciaHastaRetiro} km`}</div>
                                 <div>🛵 <strong>Tarifa del servicio:</strong> ${tarifaServicio ? `Gs. ${tarifaServicio.toLocaleString('es-PY')}` : 'No disponible'}</div>
                                 <div>💳 <strong>Forma de pago:</strong> ${formatearTipoPago(pedido.tipo_pago)}</div>
-                                <div>💰 <strong>Total a cobrar al cliente:</strong> Gs. ${Number(pedido.monto || 0).toLocaleString('es-PY')}</div>
+                                <div>💰 <strong>Total a cobrar al cliente:</strong> Gs. ${montoACobrarEntrega.toLocaleString('es-PY')}</div>
+                                ${avisoServicio}
                             </div>
                             <div class="repartidor-acciones">
                                 <button class="btn-gps" onclick="abrirNavegacion('${destinoNavegacion || ''}')">🧭 ${textoNavegacion}</button>
@@ -2047,7 +2105,19 @@ async function crearPedidoConTarifa() {
             await actualizarEstadoMiPedido(id, 'entregado', tipoPago);
         }
 
-        async function actualizarEstadoMiPedido(id, estado, tipoPago = null, destinoNavegacion = null) {
+        // Como "Paquete retirado" (entregarPedido), pero para cuando el
+        // vendedor ya arregló pagar la tarifa de servicio directo al retirar:
+        // no deja avanzar sin antes elegir cómo se la pagó.
+        async function retirarPedido(id, destinoNavegacion) {
+            const formaPagoServicio = document.getElementById(`pagoServicio-${id}`).value;
+            if (!formaPagoServicio) {
+                alert('Seleccioná cómo te pagó el vendedor la tarifa de servicio antes de retirar el paquete.');
+                return;
+            }
+            await actualizarEstadoMiPedido(id, 'en_camino', null, destinoNavegacion, formaPagoServicio);
+        }
+
+        async function actualizarEstadoMiPedido(id, estado, tipoPago = null, destinoNavegacion = null, formaPagoServicio = null) {
             const texto = {
                 en_retiro: '¿Confirmás que iniciás el viaje hacia el retiro?',
                 en_camino: '¿Confirmás que ya retiraste el paquete?',
@@ -2059,7 +2129,11 @@ async function crearPedidoConTarifa() {
                 const respuesta = await fetch(`${API_URL}/pedidos/${id}`, {
                     method: 'PUT',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ estado, ...(tipoPago ? { tipo_pago: tipoPago } : {}) })
+                    body: JSON.stringify({
+                        estado,
+                        ...(tipoPago ? { tipo_pago: tipoPago } : {}),
+                        ...(formaPagoServicio ? { forma_pago_servicio: formaPagoServicio } : {})
+                    })
                 });
                 const data = await respuesta.json();
                 if (!respuesta.ok) throw new Error(data.error || 'No se pudo actualizar el pedido');
@@ -2154,6 +2228,7 @@ async function cargarHistorial() {
                         <div>📏 Distancia: ${pedido.distancia_km ?? 'N/D'} km</div>
                         <div>💰 Total: Gs. ${Number(pedido.monto || 0).toLocaleString('es-PY')}</div>
                         <div>💳 Pago: ${formatearTipoPago(pedido.tipo_pago)}</div>
+                        ${pedido.pago_servicio_retiro ? `<div>🧾 Tarifa de servicio: a cargo del vendedor, al retirar${pedido.forma_pago_servicio ? ` (${formatearTipoPago(pedido.forma_pago_servicio)})` : ''}</div>` : ''}
                         ${usuarioRol === 'admin' ? `<div>👤 Cliente: ${pedido.cliente_nombre || `#${pedido.cliente_id}`} · 🛵 Repartidor #${pedido.repartidor_id ?? 'sin asignar'}</div>` : ''}
                     </div>
                 </div>
