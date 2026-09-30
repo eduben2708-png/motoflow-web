@@ -2089,18 +2089,11 @@ async function crearPedidoConTarifa() {
                             `
                                 : `<button class="btn-entregar btn-accion-principal" onclick="actualizarEstadoMiPedido(${pedido.id}, 'entregado')">Marcar como entregado</button>`);
 
-                    const destinoNavegacion = ['asignado', 'en_retiro'].includes(pedido.estado)
-                        ? coordenadasPedido(pedido, 'origen')
-                        : coordenadasPedido(pedido, 'destino');
-                    const textoNavegacion = ['asignado', 'en_retiro'].includes(pedido.estado)
-                        ? 'Navegar al retiro'
-                        : 'Navegar a la entrega';
-                    // El botón de acción ya abre la navegación hacia el retiro al
-                    // pasar a "asignado" → "en_retiro" (y de nuevo hacia la entrega
-                    // al retirar el paquete), así que "Navegar al retiro" solo hace
-                    // falta como respaldo mientras ya se va camino a la entrega, y
-                    // solo si todavía queda algo por cobrar al entregar.
-                    const mostrarBotonNavegar = pedido.estado === 'en_camino' && requierePagoEntrega;
+                    // No hay un botón de "Navegar a..." aparte: el botón de acción de
+                    // cada etapa (Iniciar viaje al retiro / Paquete retirado) ya abre
+                    // solo la navegación hacia el punto siguiente al tocarlo, así que
+                    // mantener otro botón para lo mismo era redundante en las tres
+                    // etapas.
 
                     // Cuando el vendedor paga el servicio al retirar, "tipo_pago" no
                     // aplica (ese campo es lo que abona el destinatario al entregar):
@@ -2134,7 +2127,6 @@ async function crearPedidoConTarifa() {
                                 ${avisoServicio}
                             </div>
                             <div class="repartidor-acciones">
-                                ${mostrarBotonNavegar ? `<button class="btn-gps" onclick="abrirNavegacion('${destinoNavegacion || ''}')">🧭 ${textoNavegacion}</button>` : ''}
                                 <button style="background:#9c27b0;" onclick="abrirChat(${pedido.id})">💬 Chat con el cliente</button>
                                 ${pedido.telefono_destinatario ? `<a class="btn-gps" style="background:#16a34a; text-decoration:none; text-align:center; display:block;" href="tel:+595${pedido.telefono_destinatario}">📞 Llamar al destinatario</a>` : ''}
                                 ${botonAccion}
