@@ -1231,8 +1231,10 @@ async function crearPedidoConTarifa() {
             try {
                 const res = await fetch(`${API_URL}/pedidos`);
                 const data = await res.json();
-                const misPedidos = data.filter(p => p.cliente_id === usuarioId);
-                
+                const misPedidos = data
+                    .filter(p => p.cliente_id === usuarioId)
+                    .sort((a, b) => b.id - a.id);
+
                 let html = '';
                 if (misPedidos.length === 0) {
                     html = '<div class="no-data">No tienes pedidos aún</div>';
