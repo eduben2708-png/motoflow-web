@@ -748,6 +748,10 @@ button:disabled { opacity: 0.5; cursor: not-allowed; transform: none; box-shadow
 .btn-gps { background: var(--color-info); margin-top: 0; }
 .btn-gps:hover { background: var(--color-info-hover); }
 
+/* Botón principal de "Mi ruta" (Iniciar viaje al retiro / Paquete retirado):
+   más grande que el resto porque es la acción que hace avanzar el pedido. */
+.btn-accion-principal { flex-basis: 100%; padding: 16px; font-size: 16px; font-weight: 700; }
+
 .no-data {
     text-align: center;
     color: var(--text-muted);

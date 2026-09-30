@@ -2026,7 +2026,7 @@ async function crearPedidoConTarifa() {
                     const requierePagoServicio = pedido.pago_servicio_retiro && pedido.estado === 'en_retiro';
 
                     const botonAccion = pedido.estado === 'asignado'
-                        ? `<button onclick="actualizarEstadoMiPedido(${pedido.id}, 'en_retiro', null, '${coordenadasPedido(pedido, 'origen')}')">Iniciar viaje al retiro</button>`
+                        ? `<button class="btn-accion-principal" onclick="actualizarEstadoMiPedido(${pedido.id}, 'en_retiro', null, '${coordenadasPedido(pedido, 'origen')}')">Iniciar viaje al retiro</button>`
                         : pedido.estado === 'en_retiro'
                             ? (requierePagoServicio
                                 ? `
@@ -2036,9 +2036,9 @@ async function crearPedidoConTarifa() {
                                     <option value="transferencia">Transferencia</option>
                                     <option value="qr">Pago por QR</option>
                                 </select>
-                                <button class="btn-entregar" onclick="retirarPedido(${pedido.id}, '${coordenadasPedido(pedido, 'destino')}')">Paquete retirado</button>
+                                <button class="btn-entregar btn-accion-principal" onclick="retirarPedido(${pedido.id}, '${coordenadasPedido(pedido, 'destino')}')">Paquete retirado</button>
                             `
-                                : `<button onclick="actualizarEstadoMiPedido(${pedido.id}, 'en_camino', null, '${coordenadasPedido(pedido, 'destino')}')">Paquete retirado</button>`)
+                                : `<button class="btn-accion-principal" onclick="actualizarEstadoMiPedido(${pedido.id}, 'en_camino', null, '${coordenadasPedido(pedido, 'destino')}')">Paquete retirado</button>`)
                             : `
                             <select id="pagoFinal-${pedido.id}" style="margin:0; padding:10px; font-size:13px;">
                                 <option value="">¿Cómo abonó el cliente?</option>
@@ -2055,10 +2055,11 @@ async function crearPedidoConTarifa() {
                     const textoNavegacion = ['asignado', 'en_retiro'].includes(pedido.estado)
                         ? 'Navegar al retiro'
                         : 'Navegar a la entrega';
-                    // Con estado "asignado" el botón de acción ("Iniciar viaje al
-                    // retiro") ya abre la navegación hacia ese mismo punto, así que
-                    // mostrar además el botón "Navegar al retiro" es redundante.
-                    const mostrarBotonNavegar = pedido.estado !== 'asignado';
+                    // El botón de acción ya abre la navegación hacia el retiro al
+                    // pasar a "asignado" → "en_retiro" (y de nuevo hacia la entrega
+                    // al retirar el paquete), así que "Navegar al retiro" solo hace
+                    // falta como respaldo mientras ya se va camino a la entrega.
+                    const mostrarBotonNavegar = pedido.estado === 'en_camino';
 
                     // Cuando el vendedor paga el servicio al retirar, "tipo_pago" no
                     // aplica (ese campo es lo que abona el destinatario al entregar):
