@@ -349,6 +349,7 @@
                     <div class="repartidor-panel">
                         <h3>Mi ruta de reparto</h3>
                         <p>Acá verás únicamente los pedidos asignados a tu cuenta.</p>
+                        <div id="miCalificacionRepartidor" class="gps-estado"></div>
                         <div id="estadoGpsRepartidor" class="gps-estado">Ubicación GPS: sin actualizar.</div>
                         <button class="btn-gps" onclick="actualizarGpsMiRepartidor()">Activar GPS automático</button>
                     </div>
@@ -1260,6 +1261,14 @@ async function crearPedidoConTarifa() {
                                     <button onclick="abrirChat(${p.id})" style="flex:1; padding: 8px; background: #9c27b0; border: none; border-radius: 6px; color: #fff; cursor: pointer;">💬 Chat</button>
                                     <button onclick="abrirMapaPedido(${p.id})" style="flex:1; padding: 8px; background: #2563eb; border: none; border-radius: 6px; color: #fff; cursor: pointer;">📍 Ver ubicación</button>
                                 </div>` : ''}
+                                ${p.estado === 'entregado' && p.repartidor_id ? (
+                                    p.calificacion_repartidor
+                                        ? `<div style="font-size:13px; color:#fbbf24; margin-top:8px;">Tu calificación al repartidor: ${'⭐'.repeat(p.calificacion_repartidor)}</div>`
+                                        : `<div style="margin-top:8px;">
+                                            <div style="font-size:12px; color:#8899bb; margin-bottom:4px;">¿Cómo estuvo el servicio del repartidor?</div>
+                                            <div>${[1, 2, 3, 4, 5].map(n => `<button onclick="calificarRepartidor(${p.id}, ${n})" title="${n} estrella${n > 1 ? 's' : ''}" style="background:none; border:none; font-size:24px; padding:2px 4px; cursor:pointer;">⭐</button>`).join('')}</div>
+                                        </div>`
+                                ) : ''}
                             </div>
                         `;
                     });
@@ -1267,6 +1276,21 @@ async function crearPedidoConTarifa() {
                 document.getElementById('listaPedidos').innerHTML = html;
             } catch (error) {
                 console.error(error);
+            }
+        }
+
+        async function calificarRepartidor(id, estrellas) {
+            try {
+                const respuesta = await fetch(`${API_URL}/pedidos/${id}/calificacion`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ calificacion: estrellas })
+                });
+                const data = await respuesta.json();
+                if (!respuesta.ok) throw new Error(data.error || 'No se pudo guardar la calificación');
+                cargarPedidos();
+            } catch (error) {
+                alert(error.message);
             }
         }
 
@@ -1981,6 +2005,11 @@ async function crearPedidoConTarifa() {
                 estadoGps.textContent = repartidor.gps_activo
                     ? 'Ubicación GPS: activa. Estás disponible para asignaciones automáticas.'
                     : 'Ubicación GPS: desactivada. Tocá el botón para activarla.';
+
+                const calificacion = Number(repartidor.calificacion || 0);
+                document.getElementById('miCalificacionRepartidor').textContent = calificacion > 0
+                    ? `Tu calificación: ⭐ ${calificacion.toFixed(1)} (${repartidor.total_entregas || 0} entregas)`
+                    : 'Todavía no tenés calificaciones de clientes.';
 
                 const respuestaPedidos = await fetch(`${API_URL}/pedidos`);
                 if (!respuestaPedidos.ok) throw new Error('No se pudieron cargar los pedidos');
