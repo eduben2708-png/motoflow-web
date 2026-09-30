@@ -2055,6 +2055,18 @@ async function crearPedidoConTarifa() {
                     const textoNavegacion = ['asignado', 'en_retiro'].includes(pedido.estado)
                         ? 'Navegar al retiro'
                         : 'Navegar a la entrega';
+                    // Con estado "asignado" el botón de acción ("Iniciar viaje al
+                    // retiro") ya abre la navegación hacia ese mismo punto, así que
+                    // mostrar además el botón "Navegar al retiro" es redundante.
+                    const mostrarBotonNavegar = pedido.estado !== 'asignado';
+
+                    // Cuando el vendedor paga el servicio al retirar, "tipo_pago" no
+                    // aplica (ese campo es lo que abona el destinatario al entregar):
+                    // mostrar en cambio si ya se confirmó cómo pagó el vendedor, o
+                    // que se confirma al retirar.
+                    const textoFormaPago = pedido.pago_servicio_retiro
+                        ? (pedido.forma_pago_servicio ? formatearTipoPago(pedido.forma_pago_servicio) : 'Se confirma al retirar')
+                        : formatearTipoPago(pedido.tipo_pago);
 
                     const avisoServicio = !pedido.pago_servicio_retiro
                         ? ''
@@ -2079,12 +2091,12 @@ async function crearPedidoConTarifa() {
                                 <div>📏 <strong>Distancia del servicio:</strong> ${Number(pedido.distancia_km || 0).toLocaleString('es-PY')} km</div>
                                 <div>🧭 <strong>Distancia aprox. hasta el retiro:</strong> ${distanciaHastaRetiro === null ? 'Activá el GPS para calcularla' : `${distanciaHastaRetiro} km`}</div>
                                 <div>🛵 <strong>Tarifa del servicio:</strong> ${tarifaServicio ? `Gs. ${tarifaServicio.toLocaleString('es-PY')}` : 'No disponible'}</div>
-                                <div>💳 <strong>Forma de pago:</strong> ${formatearTipoPago(pedido.tipo_pago)}</div>
+                                <div>💳 <strong>Forma de pago:</strong> ${textoFormaPago}</div>
                                 <div>💰 <strong>Total a cobrar al cliente:</strong> Gs. ${montoACobrarEntrega.toLocaleString('es-PY')}</div>
                                 ${avisoServicio}
                             </div>
                             <div class="repartidor-acciones">
-                                <button class="btn-gps" onclick="abrirNavegacion('${destinoNavegacion || ''}')">🧭 ${textoNavegacion}</button>
+                                ${mostrarBotonNavegar ? `<button class="btn-gps" onclick="abrirNavegacion('${destinoNavegacion || ''}')">🧭 ${textoNavegacion}</button>` : ''}
                                 <button style="background:#9c27b0;" onclick="abrirChat(${pedido.id})">💬 Chat con el cliente</button>
                                 ${pedido.telefono_destinatario ? `<a class="btn-gps" style="background:#16a34a; text-decoration:none; text-align:center; display:block;" href="tel:+595${pedido.telefono_destinatario}">📞 Llamar al destinatario</a>` : ''}
                                 ${botonAccion}
