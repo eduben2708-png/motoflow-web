@@ -2025,6 +2025,15 @@ async function crearPedidoConTarifa() {
                     const montoServicio = tarifaServicio + Number(pedido.recargo_centro || 0) + Number(pedido.comision_encargo || 0);
                     const requierePagoServicio = pedido.pago_servicio_retiro && pedido.estado === 'en_retiro';
 
+                    const montoACobrarEntrega = pedido.pago_servicio_retiro
+                        ? Math.max(0, Number(pedido.monto || 0) - montoServicio)
+                        : Number(pedido.monto || 0);
+                    // Si ya se cobró todo al vendedor al retirar, al destinatario no
+                    // hay que cobrarle nada: no tiene sentido preguntar la forma de
+                    // pago ni mantener el botón de navegar, ya se sabe que no hace
+                    // falta más gestión de cobro en la entrega.
+                    const requierePagoEntrega = montoACobrarEntrega > 0;
+
                     const botonAccion = pedido.estado === 'asignado'
                         ? `<button class="btn-accion-principal" onclick="actualizarEstadoMiPedido(${pedido.id}, 'en_retiro', null, '${coordenadasPedido(pedido, 'origen')}')">Iniciar viaje al retiro</button>`
                         : pedido.estado === 'en_retiro'
@@ -2032,22 +2041,24 @@ async function crearPedidoConTarifa() {
                                 ? `
                                 <select id="pagoServicio-${pedido.id}" style="margin:0; padding:10px; font-size:13px;">
                                     <option value="">¿Cómo te pagó el vendedor el servicio?</option>
-                                    <option value="efectivo">Efectivo</option>
+                                    <option value="efectivo">Efectivo al repartidor</option>
                                     <option value="transferencia">Transferencia</option>
                                     <option value="qr">Pago por QR</option>
                                 </select>
                                 <button class="btn-entregar btn-accion-principal" onclick="retirarPedido(${pedido.id}, '${coordenadasPedido(pedido, 'destino')}')">Paquete retirado</button>
                             `
                                 : `<button class="btn-accion-principal" onclick="actualizarEstadoMiPedido(${pedido.id}, 'en_camino', null, '${coordenadasPedido(pedido, 'destino')}')">Paquete retirado</button>`)
-                            : `
-                            <select id="pagoFinal-${pedido.id}" style="margin:0; padding:10px; font-size:13px;">
-                                <option value="">¿Cómo abonó el cliente?</option>
-                                <option value="efectivo">Efectivo al repartidor</option>
-                                <option value="transferencia">Transferencia</option>
-                                <option value="qr">Pago por QR</option>
-                            </select>
-                            <button class="btn-entregar" onclick="entregarPedido(${pedido.id})">Marcar como entregado</button>
-                        `;
+                            : (requierePagoEntrega
+                                ? `
+                                <select id="pagoFinal-${pedido.id}" style="margin:0; padding:10px; font-size:13px;">
+                                    <option value="">¿Cómo abonó el cliente?</option>
+                                    <option value="efectivo">Efectivo al repartidor</option>
+                                    <option value="transferencia">Transferencia</option>
+                                    <option value="qr">Pago por QR</option>
+                                </select>
+                                <button class="btn-entregar btn-accion-principal" onclick="entregarPedido(${pedido.id})">Marcar como entregado</button>
+                            `
+                                : `<button class="btn-entregar btn-accion-principal" onclick="actualizarEstadoMiPedido(${pedido.id}, 'entregado')">Marcar como entregado</button>`);
 
                     const destinoNavegacion = ['asignado', 'en_retiro'].includes(pedido.estado)
                         ? coordenadasPedido(pedido, 'origen')
@@ -2058,8 +2069,9 @@ async function crearPedidoConTarifa() {
                     // El botón de acción ya abre la navegación hacia el retiro al
                     // pasar a "asignado" → "en_retiro" (y de nuevo hacia la entrega
                     // al retirar el paquete), así que "Navegar al retiro" solo hace
-                    // falta como respaldo mientras ya se va camino a la entrega.
-                    const mostrarBotonNavegar = pedido.estado === 'en_camino';
+                    // falta como respaldo mientras ya se va camino a la entrega, y
+                    // solo si todavía queda algo por cobrar al entregar.
+                    const mostrarBotonNavegar = pedido.estado === 'en_camino' && requierePagoEntrega;
 
                     // Cuando el vendedor paga el servicio al retirar, "tipo_pago" no
                     // aplica (ese campo es lo que abona el destinatario al entregar):
@@ -2074,10 +2086,6 @@ async function crearPedidoConTarifa() {
                         : (['asignado', 'en_retiro'].includes(pedido.estado)
                             ? `<div style="color:#ef4444; font-weight:700; margin-top:4px;">⚠️ Cobrarle Gs. ${montoServicio.toLocaleString('es-PY')} de tarifa de servicio AL VENDEDOR, antes de irte con el paquete.</div>`
                             : `<div style="color:#4ade80; font-weight:700; margin-top:4px;">✅ Servicio ya cobrado al vendedor${pedido.forma_pago_servicio ? ` (${formatearTipoPago(pedido.forma_pago_servicio)})` : ''}.</div>`);
-
-                    const montoACobrarEntrega = pedido.pago_servicio_retiro
-                        ? Math.max(0, Number(pedido.monto || 0) - montoServicio)
-                        : Number(pedido.monto || 0);
 
                     return `
                         <div class="pedido-card">
