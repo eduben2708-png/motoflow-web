@@ -4,6 +4,34 @@
   let resumenActual = null;
   let filtroLiquidacionesRepartidorId = null;
 
+  // Subdivisión de la tarifa por forma de pago (efectivo/transferencia/qr/app),
+  // para mostrar cómo se cobró cada parte del total — no afecta ningún cálculo,
+  // es solo informativo. Se omiten los métodos en Gs. 0 para no ensuciar la vista.
+  const ETIQUETAS_METODO_PAGO = {
+    efectivo: 'Efectivo',
+    transferencia: 'Transferencia',
+    qr: 'QR',
+    app: 'App / billetera',
+    sin_definir: 'Sin especificar'
+  };
+
+  function renderDesglosePorMetodo(tarifasPorMetodo) {
+    if (!tarifasPorMetodo) return '';
+
+    const filas = Object.entries(tarifasPorMetodo)
+      .filter(([, monto]) => Number(monto) > 0)
+      .map(([metodo, monto]) => `
+        <div class="admin-fila" style="padding-left:16px; font-size:13px; color:var(--text-secondary);">
+          <span>↳ ${ETIQUETAS_METODO_PAGO[metodo] || metodo}</span><strong>${formatoGs(monto)}</strong>
+        </div>`)
+      .join('');
+
+    return filas || `
+      <div class="admin-fila" style="padding-left:16px; font-size:13px; color:var(--text-muted);">
+        <span>↳ Sin datos de forma de pago</span>
+      </div>`;
+  }
+
   function esAdmin() {
     return typeof usuarioRol !== 'undefined' && usuarioRol === 'admin';
   }
@@ -198,6 +226,7 @@
           <h3 style="margin-bottom:12px;">Resumen (pedidos pendientes de liquidar)</h3>
           <div class="admin-fila"><span>Pedidos entregados</span><strong>${resumen.total_servicios}</strong></div>
           <div class="admin-fila"><span>Total de tarifas</span><strong>${formatoGs(resumen.total_tarifas)}</strong></div>
+          ${renderDesglosePorMetodo(resumen.tarifas_por_metodo)}
           <div class="admin-fila"><span>Repartidor (80% de tarifas)</span><strong style="color:#4caf50;">${formatoGs(resumen.monto_repartidor)}</strong></div>
           <div class="admin-fila"><span>JMMotocourier (20% de tarifas)</span><strong style="color:#60a5fa;">${formatoGs(resumen.comision_plataforma)}</strong></div>
           <div class="admin-fila"><span>Ya cobrado en efectivo (a rendir)</span><strong style="color:#fbbf24;">${formatoGs(resumen.efectivo_cobrado)}</strong></div>
@@ -536,6 +565,7 @@ await cargarLiquidaciones();
         <div class="admin-fila"><span>Período</span><strong>${fechaInicio} al ${fechaFin}</strong></div>
         <div class="admin-fila"><span>Servicios</span><strong>${liquidacion.total_servicios}</strong></div>
         <div class="admin-fila"><span>Tarifas</span><strong>${formatoGs(liquidacion.total_tarifas)}</strong></div>
+        ${renderDesglosePorMetodo(liquidacion.tarifas_por_metodo)}
         <div class="admin-fila"><span>Comisión del repartidor (80%)</span><strong style="color:#4caf50;">${formatoGs(liquidacion.monto_repartidor)}</strong></div>
         ${controlesAdmin ? `
           <div class="admin-fila"><span>Comisión JMMotocourier (20%)</span><strong>${formatoGs(liquidacion.comision_plataforma)}</strong></div>
