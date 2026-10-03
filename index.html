@@ -464,6 +464,17 @@
         const API_URL = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
     ? 'http://localhost:5000/api'
     : 'https://motoflow-backend.onrender.com/api';
+
+        // Número de contacto (WhatsApp) para cuando un repartidor queda
+        // bloqueado por saldo pendiente. Formato internacional sin "+" ni
+        // espacios, como lo pide el link de wa.me.
+        const TELEFONO_CONTACTO_BLOQUEO = '595973136928';
+
+        function linkWhatsappBloqueo() {
+            const mensaje = 'Hola, tengo la cuenta de repartidor bloqueada por saldo pendiente en JMMotocourier y quiero pagar para seguir recibiendo pedidos.';
+            return `https://wa.me/${TELEFONO_CONTACTO_BLOQUEO}?text=${encodeURIComponent(mensaje)}`;
+        }
+
         let usuarioId = null;
         let usuarioTelefono = null;
         let enRecuperacionPassword = false;
@@ -2110,7 +2121,13 @@ async function crearPedidoConTarifa() {
 
                 if (repartidor.bloqueado) {
                     estadoGps.textContent = 'Cuenta bloqueada: tenés un saldo pendiente con JMMotocourier.';
-                    lista.innerHTML = '<div class="no-data">No podés recibir pedidos nuevos hasta pagar tu saldo pendiente. Andá a "Mis liquidaciones" para subir tu comprobante.</div>';
+                    lista.innerHTML = `
+                        <div class="no-data">
+                            No podés recibir pedidos nuevos hasta pagar tu saldo pendiente. Andá a "Mis liquidaciones" para subir tu comprobante, o escribinos por WhatsApp si tenés dudas.
+                            <br><br>
+                            <a href="${linkWhatsappBloqueo()}" target="_blank" rel="noopener" class="btn-accion-principal"
+                               style="display:inline-block; text-decoration:none; text-align:center; background:#22c55e; color:#fff; border-radius:8px; margin-top:8px;">💬 Escribir por WhatsApp</a>
+                        </div>`;
                     return;
                 }
 
@@ -2457,7 +2474,7 @@ async function cargarHistorial() {
                     return;
                 }
                 if (repartidor.bloqueado) {
-                    alert('Tenés un saldo pendiente con JMMotocourier. No podés recibir pedidos nuevos hasta pagarlo — subí tu comprobante en "Mis liquidaciones".');
+                    alert('Tenés un saldo pendiente con JMMotocourier. No podés recibir pedidos nuevos hasta pagarlo — subí tu comprobante en "Mis liquidaciones", o tocá el botón de WhatsApp que aparece más abajo.');
                     return;
                 }
                 if (!navigator.geolocation) {
