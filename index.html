@@ -159,6 +159,9 @@
                 <button id="navAdmin" class="nav-btn" onclick="mostrarSeccion('admin')">
                     <span class="nav-icon">⚙️</span><span class="nav-label">Admin</span>
                 </button>
+                <button id="navFinanzas" class="nav-btn" onclick="mostrarSeccion('financiero')">
+                    <span class="nav-icon">💰</span><span class="nav-label">Financiero</span>
+                </button>
                 <button id="navMiRuta" class="nav-btn hidden" onclick="mostrarSeccion('miRuta')">
                     <span class="nav-icon">🗺️</span><span class="nav-label">Mi ruta</span>
                 </button>
@@ -378,6 +381,34 @@
                     <p class="admin-subtitulo">Control de pedidos, asignaciones y estados.</p>
                     <div class="admin-estadisticas" id="adminEstadisticas"></div>
                     <div id="listaAdminPedidos"></div>
+                </div>
+
+                <!-- PANEL FINANCIERO -->
+                <div id="seccionFinanciero" class="hidden">
+                    <h3 class="admin-titulo">Financiero</h3>
+                    <p class="admin-subtitulo">Lo que cobró JMMotocourier (tarifa de servicio), por forma de pago. No incluye la plata de paso de los encargos.</p>
+
+                    <div class="card" style="margin-bottom: 16px;">
+                        <div class="form-group">
+                            <label class="label">Desde</label>
+                            <input type="date" id="finanzasFechaDesde">
+                        </div>
+                        <div class="form-group">
+                            <label class="label">Hasta</label>
+                            <input type="date" id="finanzasFechaHasta">
+                        </div>
+                        <button onclick="cargarPanelFinanciero()">Filtrar</button>
+                        <div class="filtros" style="margin-top: 10px;">
+                            <button class="filtro-btn" onclick="filtrarFinanzasPorRango('hoy')">Hoy</button>
+                            <button class="filtro-btn" onclick="filtrarFinanzasPorRango('semana')">Esta semana</button>
+                            <button class="filtro-btn" onclick="filtrarFinanzasPorRango('mes')">Este mes</button>
+                            <button class="filtro-btn" onclick="filtrarFinanzasPorRango('todo')">Todo</button>
+                        </div>
+                    </div>
+
+                    <div class="admin-estadisticas" id="finanzasEstadisticas"></div>
+                    <h3 class="admin-titulo" style="margin-top: 20px;">Historial de cobros</h3>
+                    <div id="listaFinanciero"></div>
                 </div>
 
                 <!-- PANEL DEL REPARTIDOR -->
@@ -1268,6 +1299,7 @@ async function crearPedidoConTarifa() {
     botonesCliente.forEach(id => document.getElementById(id).classList.toggle('hidden', esRepartidor));
     document.getElementById('navRepartidores').classList.toggle('hidden', esRepartidor || usuarioRol !== 'admin');
     document.getElementById('navAdmin').classList.toggle('hidden', esRepartidor || usuarioRol !== 'admin');
+    document.getElementById('navFinanzas').classList.toggle('hidden', esRepartidor || usuarioRol !== 'admin');
     document.getElementById('navMiRuta').classList.toggle('hidden', !esRepartidor);
     document.getElementById('navHistorial').classList.remove('hidden');
 
@@ -1662,6 +1694,96 @@ async function crearPedidoConTarifa() {
             }
         }
 
+        // Atajos de fecha para el panel financiero: cargan los campos
+        // Desde/Hasta con el rango elegido y refrescan el panel. "Todo"
+        // vacía los dos campos para no filtrar por fecha.
+        function filtrarFinanzasPorRango(rango) {
+            const hoy = new Date();
+            const aIso = fecha => fecha.toISOString().slice(0, 10);
+
+            let desde = '';
+            let hasta = aIso(hoy);
+
+            if (rango === 'hoy') {
+                desde = aIso(hoy);
+            } else if (rango === 'semana') {
+                const diaSemana = hoy.getDay(); // 0 = domingo
+                const diasDesdeLunes = diaSemana === 0 ? 6 : diaSemana - 1;
+                const lunes = new Date(hoy);
+                lunes.setDate(hoy.getDate() - diasDesdeLunes);
+                desde = aIso(lunes);
+            } else if (rango === 'mes') {
+                const primerDiaMes = new Date(hoy.getFullYear(), hoy.getMonth(), 1);
+                desde = aIso(primerDiaMes);
+            } else if (rango === 'todo') {
+                desde = '';
+                hasta = '';
+            }
+
+            document.getElementById('finanzasFechaDesde').value = desde;
+            document.getElementById('finanzasFechaHasta').value = hasta;
+            cargarPanelFinanciero();
+        }
+
+        async function cargarPanelFinanciero() {
+            const lista = document.getElementById('listaFinanciero');
+            const estadisticas = document.getElementById('finanzasEstadisticas');
+
+            try {
+                const params = new URLSearchParams();
+                const fechaDesde = document.getElementById('finanzasFechaDesde').value;
+                const fechaHasta = document.getElementById('finanzasFechaHasta').value;
+                if (fechaDesde) params.append('fecha_desde', fechaDesde);
+                if (fechaHasta) params.append('fecha_hasta', fechaHasta);
+
+                const respuesta = await fetch(`${API_URL}/pedidos/financiero?${params.toString()}`);
+                if (!respuesta.ok) throw new Error('No se pudo cargar el panel financiero');
+
+                const data = await respuesta.json();
+                const totales = data.totalesPorMetodo || {};
+                const formatearGs = monto => `Gs. ${Number(monto || 0).toLocaleString('es-PY')}`;
+
+                estadisticas.innerHTML = `
+                    <div class="admin-estadistica" style="border-left-color:#22c55e;"><span class="stat-label">Total cobrado</span><span class="numero">${formatearGs(data.totalGeneral)}</span></div>
+                    <div class="admin-estadistica"><span class="stat-label">Efectivo</span><span class="numero">${formatearGs(totales.efectivo)}</span></div>
+                    <div class="admin-estadistica"><span class="stat-label">Transferencia</span><span class="numero">${formatearGs(totales.transferencia)}</span></div>
+                    <div class="admin-estadistica"><span class="stat-label">QR</span><span class="numero">${formatearGs(totales.qr)}</span></div>
+                    <div class="admin-estadistica"><span class="stat-label">App / billetera</span><span class="numero">${formatearGs(totales.app)}</span></div>
+                    ${totales.sin_definir > 0 ? `<div class="admin-estadistica" style="border-left-color:#ef4444;"><span class="stat-label">Sin especificar</span><span class="numero">${formatearGs(totales.sin_definir)}</span></div>` : ''}
+                `;
+
+                const historial = data.historial || [];
+                if (historial.length === 0) {
+                    lista.innerHTML = '<div class="no-data">No hay cobros en este rango de fechas.</div>';
+                    return;
+                }
+
+                lista.innerHTML = historial.map(pedido => {
+                    const fecha = new Date(pedido.fecha_creacion).toLocaleString('es-PY', {
+                        day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit'
+                    });
+                    const etiquetaMetodo = pedido.metodo_pago === 'sin_definir' ? 'Sin especificar' : formatearTipoPago(pedido.metodo_pago);
+
+                    return `
+                        <div class="admin-pedido">
+                            <div class="pedido-header">
+                                <strong>Pedido #${pedido.id}</strong>
+                                <span>${fecha}</span>
+                            </div>
+                            <div class="admin-fila"><span>Cliente</span><strong>${pedido.cliente_nombre || `#${pedido.cliente_id ?? ''}`}</strong></div>
+                            <div class="admin-fila"><span>Servicio</span><strong>${pedido.tipo}</strong></div>
+                            <div class="admin-fila"><span>Cobrado (tarifa JMMotocourier)</span><strong>${formatearGs(pedido.monto_servicio)}</strong></div>
+                            <div class="admin-fila"><span>Forma de pago</span><strong>${etiquetaMetodo}</strong></div>
+                        </div>
+                    `;
+                }).join('');
+            } catch (error) {
+                console.error(error);
+                lista.innerHTML = '<div class="no-data">No se pudo cargar el historial financiero.</div>';
+                estadisticas.innerHTML = '';
+            }
+        }
+
         async function guardarPedidoAdmin(id, estado, repartidorId) {
             try {
                 const cuerpo = { estado };
@@ -1818,7 +1940,7 @@ async function crearPedidoConTarifa() {
         return;
     }
 
-            if (['admin', 'repartidores', 'clientes'].includes(seccion) && usuarioRol !== 'admin') {
+            if (['admin', 'repartidores', 'clientes', 'financiero'].includes(seccion) && usuarioRol !== 'admin') {
                 alert('Esta sección es exclusiva para el administrador.');
                 return;
             }
@@ -1830,6 +1952,7 @@ async function crearPedidoConTarifa() {
             document.getElementById('seccionRepartidores').classList.add('hidden');
             document.getElementById('seccionClientes').classList.add('hidden');
             document.getElementById('seccionAdmin').classList.add('hidden');
+            document.getElementById('seccionFinanciero').classList.add('hidden');
             document.getElementById('seccionMiRuta').classList.add('hidden');
 
             if (seccion !== 'chat' && intervaloChat !== null) {
@@ -1874,6 +1997,10 @@ async function crearPedidoConTarifa() {
                 document.getElementById('seccionAdmin').classList.remove('hidden');
                 event.target.classList.add('active');
                 cargarPanelAdmin();
+            } else if (seccion === 'financiero') {
+                document.getElementById('seccionFinanciero').classList.remove('hidden');
+                event.target.classList.add('active');
+                cargarPanelFinanciero();
             } else if (seccion === 'miRuta') {
                 document.getElementById('seccionMiRuta').classList.remove('hidden');
                 event.target.classList.add('active');
@@ -1896,6 +2023,7 @@ async function crearPedidoConTarifa() {
             document.getElementById('seccionCrear').classList.add('hidden');
             document.getElementById('seccionRepartidores').classList.add('hidden');
             document.getElementById('seccionAdmin').classList.add('hidden');
+            document.getElementById('seccionFinanciero').classList.add('hidden');
             document.getElementById('seccionMiRuta').classList.add('hidden');
             document.getElementById('seccionHistorial').classList.add('hidden');
             document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
