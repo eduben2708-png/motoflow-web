@@ -2418,18 +2418,38 @@ async function cargarHistorial() {
             });
         }
 
-        // Descarga face-api.js y sus modelos una sola vez por sesión
-        // (las llamadas siguientes reciben la misma promesa ya resuelta).
+        // Si una promesa tarda más de "ms" milisegundos, la da por perdida y
+        // avisa con "mensajeError" en vez de quedar esperando para siempre
+        // (esto es lo que pasaba en celulares con internet lenta: se quedaba
+        // "Preparando cámara…" sin avisar nada).
+        function conTimeout(promesa, ms, mensajeError) {
+            return Promise.race([
+                promesa,
+                new Promise((_, reject) => setTimeout(() => reject(new Error(mensajeError)), ms))
+            ]);
+        }
+
+        // Descarga face-api.js y sus modelos una sola vez por sesión (las
+        // llamadas siguientes reciben la misma promesa, ya resuelta o en
+        // curso). Se usa "tinyFaceDetector" en vez de "ssdMobilenetv1" para
+        // detectar la cara: pesa ~190 KB en vez de ~5,4 MB, lo cual importa
+        // mucho con internet móvil. Si la descarga falla de verdad (no por
+        // timeout del llamador, sino un error real), se limpia la promesa
+        // guardada para que el próximo intento vuelva a descargar en vez de
+        // quedar con el error pegado para siempre.
         function asegurarFaceApiListo() {
             if (!promesaFaceApi) {
                 promesaFaceApi = (async () => {
                     await cargarScript(FACEAPI_SRC);
                     await Promise.all([
-                        faceapi.nets.ssdMobilenetv1.loadFromUri(FACEAPI_MODELOS_URL),
+                        faceapi.nets.tinyFaceDetector.loadFromUri(FACEAPI_MODELOS_URL),
                         faceapi.nets.faceLandmark68Net.loadFromUri(FACEAPI_MODELOS_URL),
                         faceapi.nets.faceRecognitionNet.loadFromUri(FACEAPI_MODELOS_URL)
                     ]);
-                })();
+                })().catch(error => {
+                    promesaFaceApi = null;
+                    throw error;
+                });
             }
             return promesaFaceApi;
         }
@@ -2450,16 +2470,25 @@ async function cargarHistorial() {
                 ? 'Mirá de frente a la cámara, con buena luz, y tocá "Capturar" cuando estés listo.'
                 : 'Mirá de frente a la cámara para confirmar que sos vos antes de activar el GPS.';
             estado.textContent = '';
+            boton.onclick = capturarRostro;
             boton.disabled = true;
             boton.textContent = 'Preparando cámara…';
             modal.classList.remove('hidden');
 
             try {
-                estado.textContent = 'Cargando reconocimiento facial…';
-                await asegurarFaceApiListo();
+                estado.textContent = 'Descargando reconocimiento facial (puede tardar un poco la primera vez)…';
+                await conTimeout(
+                    asegurarFaceApiListo(),
+                    30000,
+                    'La descarga está tardando demasiado. Revisá tu conexión a internet y tocá "Reintentar".'
+                );
 
                 estado.textContent = 'Pidiendo acceso a la cámara…';
-                streamCamaraRostro = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' } });
+                streamCamaraRostro = await conTimeout(
+                    navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' } }),
+                    15000,
+                    'No se pudo acceder a la cámara. Revisá que le hayas dado permiso a la página y tocá "Reintentar".'
+                );
                 document.getElementById('videoRostro').srcObject = streamCamaraRostro;
 
                 estado.textContent = '';
@@ -2467,8 +2496,10 @@ async function cargarHistorial() {
                 boton.disabled = false;
             } catch (error) {
                 console.error(error);
-                estado.textContent = 'No se pudo preparar la cámara. Revisá los permisos del navegador y tocá "Cancelar" para volver a intentar.';
-                boton.textContent = 'Capturar';
+                estado.textContent = error.message || 'No se pudo preparar la cámara.';
+                boton.textContent = 'Reintentar';
+                boton.onclick = () => abrirModalRostro(modo);
+                boton.disabled = false;
             }
         }
 
@@ -2496,7 +2527,7 @@ async function cargarHistorial() {
             estado.textContent = 'Analizando tu cara…';
 
             try {
-                const deteccion = await faceapi.detectSingleFace(video)
+                const deteccion = await faceapi.detectSingleFace(video, new faceapi.TinyFaceDetectorOptions())
                     .withFaceLandmarks()
                     .withFaceDescriptor();
 
