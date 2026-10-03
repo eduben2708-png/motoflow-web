@@ -107,7 +107,43 @@
                     <h2>JMMotocourier</h2>
                     <p id="usuarioTel">+595 973802026</p>
                 </div>
+                <button class="btn-logout" style="background:#475569; margin-right:6px;" onclick="abrirModalCambiarPassword()">🔑 Contraseña</button>
                 <button class="btn-logout" onclick="logout()">Salir</button>
+            </div>
+
+            <!-- MODAL: cambiar contraseña (clientes y repartidores, desde su propia cuenta) -->
+            <div id="modalCambiarPassword" class="hidden" style="position:fixed; inset:0; background:rgba(0,0,0,0.75); z-index:999; display:flex; align-items:center; justify-content:center; padding:20px;">
+                <div class="card" style="max-width:360px; width:100%; margin:0;">
+                    <h3 style="margin-bottom:12px;">Cambiar contraseña</h3>
+                    <div class="form-group hidden" id="grupoPasswordActual">
+                        <label class="label" for="passwordActualCambiar">Contraseña actual</label>
+                        <div class="campo-password">
+                            <input id="passwordActualCambiar" type="password" maxlength="72" placeholder="••••••••">
+                            <button type="button" class="btn-mostrar-password" onclick="alternarVisibilidadPassword('passwordActualCambiar', this)" aria-label="Mostrar contraseña">👁️</button>
+                        </div>
+                    </div>
+                    <p id="avisoSinPasswordCambiar" class="hidden" style="font-size:13px; color:var(--text-secondary); margin-bottom:10px;">
+                        Todavía no tenés una contraseña creada. Elegí una para poder entrar con ella la próxima vez.
+                    </p>
+                    <div class="form-group">
+                        <label class="label" for="passwordNuevaCambiar">Contraseña nueva</label>
+                        <div class="campo-password">
+                            <input id="passwordNuevaCambiar" type="password" maxlength="72" placeholder="Mínimo 6 caracteres">
+                            <button type="button" class="btn-mostrar-password" onclick="alternarVisibilidadPassword('passwordNuevaCambiar', this)" aria-label="Mostrar contraseña">👁️</button>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label class="label" for="passwordNuevaCambiarConfirmar">Confirmar contraseña nueva</label>
+                        <div class="campo-password">
+                            <input id="passwordNuevaCambiarConfirmar" type="password" maxlength="72" placeholder="Repetí la contraseña"
+                                onkeydown="if(event.key==='Enter') confirmarCambiarPassword();">
+                            <button type="button" class="btn-mostrar-password" onclick="alternarVisibilidadPassword('passwordNuevaCambiarConfirmar', this)" aria-label="Mostrar contraseña">👁️</button>
+                        </div>
+                    </div>
+                    <div id="estadoCambiarPassword" style="color:#fbbf24; font-size:13px; margin-bottom:10px; min-height:18px;"></div>
+                    <button onclick="confirmarCambiarPassword()">Guardar contraseña</button>
+                    <button style="background:#475569;" onclick="cerrarModalCambiarPassword()">Cancelar</button>
+                </div>
             </div>
 
             <div class="nav-buttons">
@@ -349,37 +385,11 @@
                     <div class="repartidor-panel">
                         <h3>Mi ruta de reparto</h3>
                         <p>Acá verás únicamente los pedidos asignados a tu cuenta.</p>
-                        <div id="bloqueVerificacionFacial" class="hidden" style="background:#1e293b; border:1px solid #475569; border-radius:10px; padding:14px; margin-bottom:12px;">
-                            <div style="color:#fbbf24; font-weight:700; margin-bottom:6px;">🔒 Verificación facial pendiente</div>
-                            <p style="font-size:13px; color:#cbd5e1; margin-bottom:10px;">
-                                Para evitar que otra persona use tu cuenta, de ahora en más te vamos a pedir una selfie cada vez que actives el GPS para empezar tu turno. Primero necesitamos registrar tu cara una sola vez.
-                            </p>
-                            <label class="checkbox-ubicacion" style="margin-bottom:10px;">
-                                <input type="checkbox" id="consentimientoRostro">
-                                <span style="font-size:13px;">Acepto que se use una foto de mi cara para verificar mi identidad al activar el GPS. Entiendo que la foto no se guarda: solo queda registrado si coincidió o no.</span>
-                            </label>
-                            <button class="btn-accion-principal" onclick="iniciarEnrolamientoRostro()">Configurar verificación facial</button>
-                        </div>
                         <div id="miCalificacionRepartidor" class="gps-estado"></div>
                         <div id="estadoGpsRepartidor" class="gps-estado">Ubicación GPS: sin actualizar.</div>
-                        <button class="btn-gps" onclick="actualizarGpsMiRepartidor()">Activar GPS automático</button>
+                        <button class="btn-gps" onclick="iniciarSeguimientoGpsRepartidor()">Activar GPS automático</button>
                     </div>
                     <div id="listaMiRuta"></div>
-                </div>
-
-                <!-- MODAL DE VERIFICACIÓN FACIAL (enrolamiento y verificación) -->
-                <div id="modalRostro" class="hidden" style="position:fixed; inset:0; background:rgba(0,0,0,0.85); z-index:999; display:flex; align-items:center; justify-content:center; padding:20px;">
-                    <div style="background:#1e293b; border-radius:12px; padding:20px; max-width:360px; width:100%; text-align:center;">
-                        <h3 id="tituloModalRostro" style="color:#fff; margin-bottom:10px;"></h3>
-                        <p id="textoModalRostro" style="color:#cbd5e1; font-size:13px; margin-bottom:14px;"></p>
-                        <video id="videoRostro" autoplay playsinline muted style="width:100%; border-radius:8px; background:#000;"></video>
-                        <canvas id="canvasRostro" class="hidden"></canvas>
-                        <div id="estadoCapturaRostro" style="color:#fbbf24; font-size:13px; margin-top:10px; min-height:18px;"></div>
-                        <div style="display:flex; gap:8px; margin-top:14px;">
-                            <button id="btnCapturarRostro" class="btn-accion-principal" onclick="capturarRostro()" disabled>Preparando cámara…</button>
-                            <button style="background:#475569;" onclick="cerrarModalRostro()">Cancelar</button>
-                        </div>
-                    </div>
                 </div>
 
                 <!-- REPARTIDORES -->
@@ -454,16 +464,6 @@
         const API_URL = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
     ? 'http://localhost:5000/api'
     : 'https://motoflow-backend.onrender.com/api';
-
-        // Verificación facial de repartidores: la librería face-api.js se
-        // carga desde un CDN (no agrega dependencias nativas al backend) y
-        // los modelos ya entrenados se bajan de este repositorio público.
-        const FACEAPI_SRC = 'https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js';
-        const FACEAPI_MODELOS_URL = 'https://cdn.jsdelivr.net/gh/justadudewhohacks/face-api.js@master/weights';
-        let promesaFaceApi = null;
-        let streamCamaraRostro = null;
-        let modoModalRostro = null;
-        let intentosVerificacionFacial = 0;
         let usuarioId = null;
         let usuarioTelefono = null;
         let enRecuperacionPassword = false;
@@ -1867,10 +1867,7 @@ async function crearPedidoConTarifa() {
                 document.getElementById('seccionMiRuta').classList.remove('hidden');
                 event.target.classList.add('active');
                 cargarPanelMiRuta();
-                // No se llama directo a iniciarSeguimientoGpsRepartidor(): pasa primero
-                // por la verificación facial (si el GPS ya está activo, esta función
-                // no vuelve a pedir la cara, solo lo hace una vez por turno).
-                actualizarGpsMiRepartidor();
+                iniciarSeguimientoGpsRepartidor();
                 iniciarActualizacionMiRuta();
             } else if (seccion === 'historial') {
                 document.getElementById('seccionHistorial').classList.remove('hidden');
@@ -1896,10 +1893,7 @@ async function crearPedidoConTarifa() {
                 document.getElementById('seccionMiRuta').classList.remove('hidden');
                 boton.classList.add('active');
                 cargarPanelMiRuta();
-                // No se llama directo a iniciarSeguimientoGpsRepartidor(): pasa primero
-                // por la verificación facial (si el GPS ya está activo, esta función
-                // no vuelve a pedir la cara, solo lo hace una vez por turno).
-                actualizarGpsMiRepartidor();
+                iniciarSeguimientoGpsRepartidor();
                 iniciarActualizacionMiRuta();
             }
         }
@@ -1937,6 +1931,82 @@ async function crearPedidoConTarifa() {
             input.type = estabaOculto ? 'text' : 'password';
             boton.textContent = estabaOculto ? '🙈' : '👁️';
             boton.setAttribute('aria-label', estabaOculto ? 'Ocultar contraseña' : 'Mostrar contraseña');
+        }
+
+        // Cambio de contraseña desde la propia cuenta (clientes y
+        // repartidores). Si la cuenta todavía no tenía contraseña (por
+        // ejemplo, un repartidor que siempre entró con el código SMS), no se
+        // pide la actual: directamente se le deja crear la primera.
+        async function abrirModalCambiarPassword() {
+            document.getElementById('passwordActualCambiar').value = '';
+            document.getElementById('passwordNuevaCambiar').value = '';
+            document.getElementById('passwordNuevaCambiarConfirmar').value = '';
+            document.getElementById('estadoCambiarPassword').textContent = '';
+            document.getElementById('modalCambiarPassword').classList.remove('hidden');
+
+            try {
+                const respuesta = await fetch(`${API_URL}/auth/check-phone`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ telefono: usuarioTelefono })
+                });
+                const data = await respuesta.json();
+                const tienePassword = Boolean(data.tiene_password);
+
+                document.getElementById('grupoPasswordActual').classList.toggle('hidden', !tienePassword);
+                document.getElementById('avisoSinPasswordCambiar').classList.toggle('hidden', tienePassword);
+            } catch (error) {
+                console.error(error);
+                // Si falla la consulta, se muestra el campo de "contraseña actual"
+                // por las dudas (es el caso más común: la mayoría ya tiene una).
+                document.getElementById('grupoPasswordActual').classList.remove('hidden');
+                document.getElementById('avisoSinPasswordCambiar').classList.add('hidden');
+            }
+        }
+
+        function cerrarModalCambiarPassword() {
+            document.getElementById('modalCambiarPassword').classList.add('hidden');
+        }
+
+        async function confirmarCambiarPassword() {
+            const estado = document.getElementById('estadoCambiarPassword');
+            const passwordActual = document.getElementById('passwordActualCambiar').value;
+            const passwordNueva = document.getElementById('passwordNuevaCambiar').value;
+            const passwordNuevaConfirmar = document.getElementById('passwordNuevaCambiarConfirmar').value;
+
+            if (!passwordNueva || passwordNueva.length < 6) {
+                estado.textContent = 'La contraseña nueva debe tener al menos 6 caracteres.';
+                return;
+            }
+            if (passwordNueva !== passwordNuevaConfirmar) {
+                estado.textContent = 'Las dos contraseñas nuevas no coinciden.';
+                return;
+            }
+            if (!document.getElementById('grupoPasswordActual').classList.contains('hidden') && !passwordActual) {
+                estado.textContent = 'Ingresá tu contraseña actual.';
+                return;
+            }
+
+            estado.textContent = 'Guardando…';
+
+            try {
+                const respuesta = await fetch(`${API_URL}/auth/cambiar-password`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        usuario_id: usuarioId,
+                        password_actual: passwordActual || null,
+                        password_nueva: passwordNueva
+                    })
+                });
+                const data = await respuesta.json();
+                if (!respuesta.ok) throw new Error(data.error || 'No se pudo cambiar la contraseña');
+
+                estado.textContent = '¡Listo! Tu contraseña quedó actualizada.';
+                setTimeout(() => cerrarModalCambiarPassword(), 1200);
+            } catch (error) {
+                estado.textContent = error.message;
+            }
         }
 
         function reproducirTonoPedidoNuevo() {
@@ -2047,8 +2117,6 @@ async function crearPedidoConTarifa() {
                 estadoGps.textContent = repartidor.gps_activo
                     ? 'Ubicación GPS: activa. Estás disponible para asignaciones automáticas.'
                     : 'Ubicación GPS: desactivada. Tocá el botón para activarla.';
-
-                document.getElementById('bloqueVerificacionFacial').classList.toggle('hidden', Boolean(repartidor.tiene_verificacion_facial));
 
                 const calificacion = Number(repartidor.calificacion || 0);
                 document.getElementById('miCalificacionRepartidor').textContent = calificacion > 0
@@ -2373,249 +2441,6 @@ async function cargarHistorial() {
             const url = `https://www.google.com/maps/dir/?api=1&destination=${latitud},${longitud}&travelmode=driving`;
             const nuevaVentana = window.open(url, '_blank', 'noopener');
            if (!nuevaVentana) window.open(url, '_blank', 'noopener');
-        }
-
-        async function actualizarGpsMiRepartidor() {
-            // Si ya está siguiéndose el GPS, no hace falta volver a verificar
-            // la cara: la verificación es solo para arrancar el turno.
-            if (seguimientoGpsId !== null) return;
-
-            try {
-                const repartidor = await obtenerMiRepartidor();
-                if (!repartidor) {
-                    alert('Ingresá con una cuenta registrada como repartidor.');
-                    return;
-                }
-                if (!repartidor.tiene_verificacion_facial) {
-                    alert('Antes de activar el GPS, configurá tu verificación facial (más arriba, donde dice "Verificación facial pendiente").');
-                    return;
-                }
-                intentosVerificacionFacial = 0;
-                abrirModalRostro('verificar');
-            } catch (error) {
-                alert(error.message);
-            }
-        }
-
-        function iniciarEnrolamientoRostro() {
-            if (!document.getElementById('consentimientoRostro').checked) {
-                alert('Para continuar, tildá que aceptás antes de configurar la verificación facial.');
-                return;
-            }
-            abrirModalRostro('enrolar');
-        }
-
-        // Carga un <script> externo una sola vez (si ya está en la página,
-        // no lo vuelve a agregar).
-        function cargarScript(src) {
-            return new Promise((resolve, reject) => {
-                if (document.querySelector(`script[src="${src}"]`)) { resolve(); return; }
-                const script = document.createElement('script');
-                script.src = src;
-                script.onload = () => resolve();
-                script.onerror = () => reject(new Error('No se pudo cargar la librería de reconocimiento facial.'));
-                document.head.appendChild(script);
-            });
-        }
-
-        // Si una promesa tarda más de "ms" milisegundos, la da por perdida y
-        // avisa con "mensajeError" en vez de quedar esperando para siempre
-        // (esto es lo que pasaba en celulares con internet lenta: se quedaba
-        // "Preparando cámara…" sin avisar nada).
-        function conTimeout(promesa, ms, mensajeError) {
-            return Promise.race([
-                promesa,
-                new Promise((_, reject) => setTimeout(() => reject(new Error(mensajeError)), ms))
-            ]);
-        }
-
-        // Descarga face-api.js y sus modelos una sola vez por sesión (las
-        // llamadas siguientes reciben la misma promesa, ya resuelta o en
-        // curso). Se usa "tinyFaceDetector" en vez de "ssdMobilenetv1" para
-        // detectar la cara: pesa ~190 KB en vez de ~5,4 MB, lo cual importa
-        // mucho con internet móvil. Si la descarga falla de verdad (no por
-        // timeout del llamador, sino un error real), se limpia la promesa
-        // guardada para que el próximo intento vuelva a descargar en vez de
-        // quedar con el error pegado para siempre.
-        function asegurarFaceApiListo() {
-            if (!promesaFaceApi) {
-                promesaFaceApi = (async () => {
-                    await cargarScript(FACEAPI_SRC);
-                    await Promise.all([
-                        faceapi.nets.tinyFaceDetector.loadFromUri(FACEAPI_MODELOS_URL),
-                        faceapi.nets.faceLandmark68Net.loadFromUri(FACEAPI_MODELOS_URL),
-                        faceapi.nets.faceRecognitionNet.loadFromUri(FACEAPI_MODELOS_URL)
-                    ]);
-                })().catch(error => {
-                    promesaFaceApi = null;
-                    throw error;
-                });
-            }
-            return promesaFaceApi;
-        }
-
-        // Abre el modal de cámara, ya sea para registrar la cara por primera
-        // vez ('enrolar') o para confirmar identidad antes de activar el GPS
-        // ('verificar').
-        async function abrirModalRostro(modo) {
-            modoModalRostro = modo;
-            const modal = document.getElementById('modalRostro');
-            const titulo = document.getElementById('tituloModalRostro');
-            const texto = document.getElementById('textoModalRostro');
-            const estado = document.getElementById('estadoCapturaRostro');
-            const boton = document.getElementById('btnCapturarRostro');
-
-            titulo.textContent = modo === 'enrolar' ? 'Registrá tu cara' : 'Verificá tu identidad';
-            texto.textContent = modo === 'enrolar'
-                ? 'Mirá de frente a la cámara, con buena luz, y tocá "Capturar" cuando estés listo.'
-                : 'Mirá de frente a la cámara para confirmar que sos vos antes de activar el GPS.';
-            estado.textContent = '';
-            boton.onclick = capturarRostro;
-            boton.disabled = true;
-            boton.textContent = 'Preparando cámara…';
-            modal.classList.remove('hidden');
-
-            try {
-                estado.textContent = 'Descargando reconocimiento facial (puede tardar un poco la primera vez)…';
-                await conTimeout(
-                    asegurarFaceApiListo(),
-                    30000,
-                    'La descarga está tardando demasiado. Revisá tu conexión a internet y tocá "Reintentar".'
-                );
-
-                estado.textContent = 'Pidiendo acceso a la cámara…';
-                streamCamaraRostro = await conTimeout(
-                    navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' } }),
-                    15000,
-                    'No se pudo acceder a la cámara. Revisá que le hayas dado permiso a la página y tocá "Reintentar".'
-                );
-                document.getElementById('videoRostro').srcObject = streamCamaraRostro;
-
-                estado.textContent = '';
-                boton.textContent = 'Capturar';
-                boton.disabled = false;
-            } catch (error) {
-                console.error(error);
-                estado.textContent = error.message || 'No se pudo preparar la cámara.';
-                boton.textContent = 'Reintentar';
-                boton.onclick = () => abrirModalRostro(modo);
-                boton.disabled = false;
-            }
-        }
-
-        // Cierra el modal y libera la cámara (apaga el stream de video para
-        // no dejar la cámara encendida de fondo).
-        function cerrarModalRostro() {
-            document.getElementById('modalRostro').classList.add('hidden');
-            if (streamCamaraRostro) {
-                streamCamaraRostro.getTracks().forEach(pista => pista.stop());
-                streamCamaraRostro = null;
-            }
-            document.getElementById('videoRostro').srcObject = null;
-            modoModalRostro = null;
-        }
-
-        // Toma un cuadro del video actual, calcula el "descriptor" facial
-        // (128 números que describen la cara, no una foto) y lo manda al
-        // servidor para registrarlo o compararlo, según el modo del modal.
-        async function capturarRostro() {
-            const estado = document.getElementById('estadoCapturaRostro');
-            const boton = document.getElementById('btnCapturarRostro');
-            const video = document.getElementById('videoRostro');
-
-            boton.disabled = true;
-            estado.textContent = 'Analizando tu cara…';
-
-            try {
-                const deteccion = await faceapi.detectSingleFace(video, new faceapi.TinyFaceDetectorOptions())
-                    .withFaceLandmarks()
-                    .withFaceDescriptor();
-
-                if (!deteccion) {
-                    estado.textContent = 'No se detectó una cara. Mirá de frente a la cámara, con buena luz, e intentá de nuevo.';
-                    boton.disabled = false;
-                    return;
-                }
-
-                const descriptor = Array.from(deteccion.descriptor);
-
-                if (modoModalRostro === 'enrolar') {
-                    await enviarEnrolamientoRostro(descriptor);
-                } else {
-                    await enviarVerificacionRostro(descriptor);
-                }
-            } catch (error) {
-                console.error(error);
-                estado.textContent = 'Ocurrió un error al analizar la cara. Probá de nuevo.';
-                boton.disabled = false;
-            }
-        }
-
-        // Registra la cara del repartidor por primera vez (o la reemplaza
-        // si ya tenía una). El servidor solo guarda el descriptor numérico.
-        async function enviarEnrolamientoRostro(descriptor) {
-            const estado = document.getElementById('estadoCapturaRostro');
-            try {
-                const repartidor = await obtenerMiRepartidor();
-                if (!repartidor) throw new Error('Ingresá con una cuenta registrada como repartidor.');
-
-                const respuesta = await fetch(`${API_URL}/repartidores/${repartidor.id}/rostro`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ descriptor })
-                });
-                const data = await respuesta.json();
-                if (!respuesta.ok) throw new Error(data.error || 'No se pudo registrar tu cara.');
-
-                estado.textContent = '¡Listo! Tu cara quedó registrada.';
-                setTimeout(() => {
-                    cerrarModalRostro();
-                    cargarPanelMiRuta();
-                }, 1200);
-            } catch (error) {
-                estado.textContent = error.message;
-                document.getElementById('btnCapturarRostro').disabled = false;
-            }
-        }
-
-        // Compara la cara actual contra la registrada. Si coincide, recién
-        // ahí arranca el seguimiento GPS real. Permite hasta 3 intentos
-        // antes de cerrar el modal.
-        async function enviarVerificacionRostro(descriptor) {
-            const estado = document.getElementById('estadoCapturaRostro');
-            try {
-                const repartidor = await obtenerMiRepartidor();
-                if (!repartidor) throw new Error('Ingresá con una cuenta registrada como repartidor.');
-
-                const respuesta = await fetch(`${API_URL}/repartidores/${repartidor.id}/verificar-rostro`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ descriptor })
-                });
-                const data = await respuesta.json();
-                if (!respuesta.ok) throw new Error(data.error || 'No se pudo verificar tu identidad.');
-
-                if (!data.verificado) {
-                    intentosVerificacionFacial++;
-                    if (intentosVerificacionFacial >= 3) {
-                        estado.textContent = 'No coincide con la cara registrada (3 intentos). Contactá al administrador si el problema persiste.';
-                        setTimeout(() => cerrarModalRostro(), 2500);
-                        return;
-                    }
-                    estado.textContent = `No coincide con la cara registrada. Intentá de nuevo (${intentosVerificacionFacial}/3).`;
-                    document.getElementById('btnCapturarRostro').disabled = false;
-                    return;
-                }
-
-                estado.textContent = 'Identidad verificada.';
-                setTimeout(() => {
-                    cerrarModalRostro();
-                    iniciarSeguimientoGpsRepartidor();
-                }, 800);
-            } catch (error) {
-                estado.textContent = error.message;
-                document.getElementById('btnCapturarRostro').disabled = false;
-            }
         }
 
         async function iniciarSeguimientoGpsRepartidor() {
