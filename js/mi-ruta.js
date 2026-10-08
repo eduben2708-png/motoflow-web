@@ -84,7 +84,6 @@ async function cargarPanelMiRuta(verificarNuevos = false) {
             <option value="">¿Cómo abonó el cliente?</option>
             <option value="efectivo">Efectivo al repartidor</option>
             <option value="transferencia">Transferencia</option>
-            <option value="qr">Pago por QR</option>
           </select>
           <button class="btn-entregar" onclick="entregarPedido(${pedido.id})">Marcar como entregado</button>
         `;
