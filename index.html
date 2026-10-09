@@ -986,6 +986,8 @@ async function crearPedidoConTarifa() {
             marcadorEntrega = null;
             retiroEsAutomatico = false;
             entregaEsAutomatico = false;
+            limpiarCamposDireccion('retiro');
+            limpiarCamposDireccion('entrega');
             document.getElementById('envoltorioMapaCrear').classList.add('hidden');
             document.getElementById('usarUbicacionRetiro').checked = true;
             document.getElementById('usarUbicacionEntrega').checked = true;
@@ -2982,8 +2984,25 @@ async function cargarHistorial() {
         }
 
         // Limpia un solo punto (usado al destildar su checkbox de ubicación).
+        // Vacía lo que quedó escrito en el buscador de direcciones, en el campo
+        // del link pegado y en la lista de sugerencias de un punto, para que
+        // no se vea la última ubicación que pidió el cliente.
+        function limpiarCamposDireccion(rol) {
+            const sufijo = rol === 'retiro' ? 'Retiro' : 'Entrega';
+            const buscador = document.getElementById('buscarDireccion' + sufijo);
+            const link = document.getElementById('linkUbicacion' + sufijo);
+            const lista = document.getElementById('sugerencias' + sufijo);
+            if (buscador) buscador.value = '';
+            if (link) link.value = '';
+            if (lista) {
+                lista.innerHTML = '';
+                lista.classList.add('hidden');
+            }
+        }
+
         function limpiarPunto(rol) {
             const esRetiro = rol === 'retiro';
+            limpiarCamposDireccion(rol);
 
             if (esRetiro) {
                 puntoRetiro = null;
@@ -3008,6 +3027,8 @@ async function cargarHistorial() {
             modoEdicionPunto = null;
             retiroEsAutomatico = false;
             entregaEsAutomatico = false;
+            limpiarCamposDireccion('retiro');
+            limpiarCamposDireccion('entrega');
 
             if (marcadorRetiro) mapaCrear.removeLayer(marcadorRetiro);
             if (marcadorEntrega) mapaCrear.removeLayer(marcadorEntrega);
