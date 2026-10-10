@@ -2962,12 +2962,11 @@ async function crearPedidoConTarifa() {
         }
 
         async function actualizarEstadoMiPedido(id, estado, tipoPago = null, destinoNavegacion = null, formaPagoServicio = null) {
-            const texto = {
-                en_retiro: '¿Confirmás que iniciás el viaje hacia el retiro?',
-                en_camino: '¿Confirmás que ya retiraste el paquete?',
-                entregado: '¿Confirmás que el pedido fue entregado?'
-            }[estado] || '¿Confirmás el cambio de estado?';
-            if (!confirm(texto)) return;
+            // Iniciar el viaje al retiro y marcar el paquete como retirado no piden
+            // confirmación: tocar el botón grande ya es la confirmación (el repartidor
+            // va manejando y cada aviso le hace perder tiempo). Solo "entregado", que
+            // cierra el pedido y el cobro, mantiene su pregunta.
+            if (estado === 'entregado' && !confirm('¿Confirmás que el pedido fue entregado?')) return;
 
             try {
                 const respuesta = await fetch(`${API_URL}/pedidos/${id}`, {
@@ -2983,10 +2982,8 @@ async function crearPedidoConTarifa() {
                 if (!respuesta.ok) throw new Error(data.error || 'No se pudo actualizar el pedido');
 
                 if (estado === 'en_retiro') {
-                    alert('Viaje iniciado. Se abrirá la navegación al punto de retiro.');
                     abrirNavegacion(destinoNavegacion);
                 } else if (estado === 'en_camino') {
-                    alert('Paquete retirado. Se abrirá la navegación hacia la entrega.');
                     abrirNavegacion(destinoNavegacion);
                 } else {
                     const pedido = pedidosMiRutaActuales.find(item => Number(item.id) === Number(id));
