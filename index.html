@@ -619,12 +619,27 @@
                     return;
                 }
 
-                let suscripcion = await registro.pushManager.getSubscription();
-                if (!suscripcion) {
-                    const res = await fetch(`${API_URL}/push/vapid-public-key`);
-                    if (!res.ok) return;
-                    const { publicKey } = await res.json();
+                const res = await fetch(`${API_URL}/push/vapid-public-key`);
+                if (!res.ok) return;
+                const { publicKey } = await res.json();
 
+                // Si ya había una suscripción hecha con otra clave del
+                // servidor (por ejemplo, si se rotaron las claves), no sirve:
+                // el servicio de push rechaza los avisos y el repartidor no
+                // se entera. En ese caso se da de baja y se crea una nueva.
+                let suscripcion = await registro.pushManager.getSubscription();
+                if (suscripcion) {
+                    const claveActual = suscripcion.options && suscripcion.options.applicationServerKey;
+                    const claveEsperada = convertirClaveVapid(publicKey);
+                    const coincide = claveActual &&
+                        claveActual.byteLength === claveEsperada.length &&
+                        new Uint8Array(claveActual).every((byte, i) => byte === claveEsperada[i]);
+                    if (claveActual && !coincide) {
+                        await suscripcion.unsubscribe();
+                        suscripcion = null;
+                    }
+                }
+                if (!suscripcion) {
                     suscripcion = await registro.pushManager.subscribe({
                         userVisibleOnly: true,
                         applicationServerKey: convertirClaveVapid(publicKey)
@@ -639,6 +654,16 @@
             } catch (error) {
                 console.error('No se pudo activar las notificaciones push.', error);
             }
+        }
+
+        // El service worker avisa cuando el navegador renovó la suscripción
+        // push por su cuenta: hay que registrarla de nuevo en el servidor.
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.addEventListener('message', (evento) => {
+                if (evento.data && evento.data.tipo === 'resuscribir-push' && typeof esRepartidor !== 'undefined' && esRepartidor && usuarioId) {
+                    suscribirseANotificacionesPush();
+                }
+            });
         }
 
         async function desuscribirseDeNotificacionesPush() {

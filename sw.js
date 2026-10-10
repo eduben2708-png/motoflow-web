@@ -26,10 +26,33 @@ self.addEventListener('push', (evento) => {
     icon: 'icons/icon-192.png',
     badge: 'icons/icon-192.png',
     vibrate: [250, 100, 250, 100, 250],
+    // Con "tag" cada pedido tiene su propia notificación; "renotify" hace
+    // que vuelva a sonar/vibrar si llega otro aviso con el mismo tag, y
+    // "requireInteraction" la deja en pantalla hasta que se toque.
+    tag: datos.pedidoId ? 'pedido-' + datos.pedidoId : 'jmmotocourier',
+    renotify: true,
+    requireInteraction: true,
+    silent: false,
+    timestamp: Date.now(),
     data: { pedidoId: datos.pedidoId || null }
   };
 
   evento.waitUntil(self.registration.showNotification(datos.titulo, opciones));
+});
+
+// Si el navegador renueva por su cuenta la suscripción push (pasa de vez en
+// cuando), la anterior deja de servir y el servidor ya no podría avisarle al
+// repartidor. Se avisa a las pestañas abiertas para que se vuelvan a suscribir;
+// si no hay ninguna abierta, la app se vuelve a suscribir sola la próxima vez
+// que se abra.
+self.addEventListener('pushsubscriptionchange', (evento) => {
+  evento.waitUntil(
+    clients.matchAll({ type: 'window', includeUncontrolled: true }).then((listaClientes) => {
+      for (const cliente of listaClientes) {
+        cliente.postMessage({ tipo: 'resuscribir-push' });
+      }
+    })
+  );
 });
 
 // Al tocar la notificación, se enfoca la pestaña de la app si ya está
