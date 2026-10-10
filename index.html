@@ -162,6 +162,9 @@
                 <button id="navFinanzas" class="nav-btn" onclick="mostrarSeccion('financiero')">
                     <span class="nav-icon">💰</span><span class="nav-label">Financiero</span>
                 </button>
+                <button id="navMapaAdmin" class="nav-btn hidden" onclick="mostrarSeccion('mapaAdmin')">
+                    <span class="nav-icon">📡</span><span class="nav-label">Mapa</span>
+                </button>
                 <button id="navMiRuta" class="nav-btn hidden" onclick="mostrarSeccion('miRuta')">
                     <span class="nav-icon">🗺️</span><span class="nav-label">Mi ruta</span>
                 </button>
@@ -381,6 +384,15 @@
                     <p class="admin-subtitulo">Control de pedidos, asignaciones y estados.</p>
                     <div class="admin-estadisticas" id="adminEstadisticas"></div>
                     <div id="listaAdminPedidos"></div>
+                </div>
+
+                <!-- MAPA DE REPARTIDORES (ADMINISTRADOR) -->
+                <div id="seccionMapaAdmin" class="hidden">
+                    <h3 class="admin-titulo">Mapa de repartidores</h3>
+                    <p class="admin-subtitulo">Repartidores con el GPS activo. Verde: libre. Naranja: con pedido. Gris: sin señal reciente.</p>
+                    <div id="mapaAdminResumen" class="mapa-info"></div>
+                    <div id="mapaAdmin" style="width:100%; height:60vh; min-height:340px; border-radius:var(--radius-md); margin-bottom:var(--space-4); border:1px solid var(--color-border-strong);"></div>
+                    <div id="mapaAdminLista"></div>
                 </div>
 
                 <!-- PANEL FINANCIERO -->
@@ -1327,6 +1339,7 @@ async function crearPedidoConTarifa() {
     document.getElementById('navRepartidores').classList.toggle('hidden', esRepartidor || usuarioRol !== 'admin');
     document.getElementById('navAdmin').classList.toggle('hidden', esRepartidor || usuarioRol !== 'admin');
     document.getElementById('navFinanzas').classList.toggle('hidden', esRepartidor || usuarioRol !== 'admin');
+    document.getElementById('navMapaAdmin').classList.toggle('hidden', esRepartidor || usuarioRol !== 'admin');
     document.getElementById('navMiRuta').classList.toggle('hidden', !esRepartidor);
     document.getElementById('navHistorial').classList.remove('hidden');
 
@@ -1967,7 +1980,7 @@ async function crearPedidoConTarifa() {
         return;
     }
 
-            if (['admin', 'repartidores', 'clientes', 'financiero'].includes(seccion) && usuarioRol !== 'admin') {
+            if (['admin', 'repartidores', 'clientes', 'financiero', 'mapaAdmin'].includes(seccion) && usuarioRol !== 'admin') {
                 alert('Esta sección es exclusiva para el administrador.');
                 return;
             }
@@ -1980,7 +1993,9 @@ async function crearPedidoConTarifa() {
             document.getElementById('seccionClientes').classList.add('hidden');
             document.getElementById('seccionAdmin').classList.add('hidden');
             document.getElementById('seccionFinanciero').classList.add('hidden');
+            document.getElementById('seccionMapaAdmin').classList.add('hidden');
             document.getElementById('seccionMiRuta').classList.add('hidden');
+            document.getElementById('seccionHistorial').classList.add('hidden');
 
             if (seccion !== 'chat' && intervaloChat !== null) {
                 clearInterval(intervaloChat);
@@ -2024,6 +2039,10 @@ async function crearPedidoConTarifa() {
                 document.getElementById('seccionAdmin').classList.remove('hidden');
                 event.target.classList.add('active');
                 cargarPanelAdmin();
+            } else if (seccion === 'mapaAdmin') {
+                document.getElementById('seccionMapaAdmin').classList.remove('hidden');
+                document.getElementById('navMapaAdmin').classList.add('active');
+                setTimeout(iniciarMapaAdmin, 100);
             } else if (seccion === 'financiero') {
                 document.getElementById('seccionFinanciero').classList.remove('hidden');
                 event.target.classList.add('active');
@@ -3143,35 +3162,127 @@ async function cargarHistorial() {
             actualizarInstruccionMapa();
         }
 
+        // ---- Mapas (seguimiento del cliente y mapa del administrador) ----
+
+        function escaparTextoMapa(texto) {
+            return String(texto ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+        }
+
+        // Ícono redondo con un emoji adentro y un aro de color (verde/naranja/
+        // gris según el caso). Se arma con HTML en vez de imágenes para no
+        // depender de archivos externos.
+        function iconoEmojiMapa(emoji, color, tamano = 38) {
+            return L.divIcon({
+                className: '',
+                html: `<div style="width:${tamano}px; height:${tamano}px; border-radius:50%; background:#fff; border:3px solid ${color}; box-shadow:0 2px 6px rgba(0,0,0,.45); display:flex; align-items:center; justify-content:center; font-size:${Math.round(tamano * 0.55)}px; line-height:1;">${emoji}</div>`,
+                iconSize: [tamano, tamano],
+                iconAnchor: [tamano / 2, tamano / 2],
+                popupAnchor: [0, -tamano / 2]
+            });
+        }
+
+        // Devuelve [lat, lng] o null. Se evita Number(null), que da 0 y
+        // pondría un punto falso en el océano frente a África.
+        function latLngDe(objeto, prefijo) {
+            const lat = objeto[`${prefijo}_lat`];
+            const lng = objeto[`${prefijo}_lng`];
+            if (lat === null || lat === undefined || lat === '' || lng === null || lng === undefined || lng === '') return null;
+            const latitud = Number(lat);
+            const longitud = Number(lng);
+            return Number.isFinite(latitud) && Number.isFinite(longitud) ? [latitud, longitud] : null;
+        }
+
+        // La ubicación del repartidor solo se envía mientras la app está abierta
+        // en su celular. Si pasó mucho tiempo, la posición es vieja y hay que
+        // avisarlo en vez de mostrarla como si fuera actual.
+        const SEGUNDOS_UBICACION_RECIENTE = 300;
+
+        function ubicacionEsReciente(repartidor) {
+            const segundos = repartidor.segundos_desde_ubicacion;
+            return segundos !== null && segundos !== undefined && Number(segundos) <= SEGUNDOS_UBICACION_RECIENTE;
+        }
+
+        function textoHaceTiempo(segundos) {
+            if (segundos === null || segundos === undefined) return 'sin datos de cuándo';
+            const s = Math.max(0, Number(segundos));
+            if (s < 45) return 'hace unos segundos';
+            if (s < 3600) return `hace ${Math.max(1, Math.round(s / 60))} min`;
+            if (s < 86400) return `hace ${Math.round(s / 3600)} h`;
+            return `hace ${Math.round(s / 86400)} días`;
+        }
+
+        let marcadorRetiroSeg = null;
+        let marcadorEntregaSeg = null;
+        let ajustarVistaMapa = true;
+        let intervaloMapa = null;
+
+        function limpiarMapaSeguimiento() {
+            [marcadorRepartidor, marcadorRetiroSeg, marcadorEntregaSeg].forEach(marcador => {
+                if (marcador && mapa) mapa.removeLayer(marcador);
+            });
+            marcadorRepartidor = null;
+            marcadorRetiroSeg = null;
+            marcadorEntregaSeg = null;
+        }
+
         function inicializarMapa() {
-            if (mapa) return;
+            if (!mapa) {
+                const ciudadDelEste = [-25.5095, -54.6132];
+                mapa = L.map('mapa').setView(ciudadDelEste, 14);
 
-            const ciudadDelEste = [-25.5095, -54.6132];
-            
-            mapa = L.map('mapa').setView(ciudadDelEste, 14);
+                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                    attribution: '&copy; OpenStreetMap contributors',
+                    subdomains: 'abc',
+                    maxZoom: 19
+                }).addTo(mapa);
+            }
 
-            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-                attribution: '&copy; OpenStreetMap contributors',
-                subdomains: 'abc',
-                maxZoom: 19
-            }).addTo(mapa);
-
-            L.marker(ciudadDelEste, {
-                title: 'Tu ubicación'
-            }).addTo(mapa).bindPopup('📍 Tu ubicación');
-
+            // El mapa se crea con la sección oculta la primera vez: sin esto
+            // Leaflet se arma con tamaño 0 y se ve cortado o gris.
+            mapa.invalidateSize();
+            limpiarMapaSeguimiento();
+            ajustarVistaMapa = true;
             actualizarUbicacionRepartidor();
-            setInterval(actualizarUbicacionRepartidor, 10000);
+
+            if (intervaloMapa === null) {
+                intervaloMapa = setInterval(() => {
+                    const visible = !document.getElementById('seccionMapa').classList.contains('hidden');
+                    if (visible && document.visibilityState === 'visible') actualizarUbicacionRepartidor();
+                }, 10000);
+            }
+        }
+
+        function reajustarVistaMapa() {
+            ajustarVistaMapa = true;
+            actualizarUbicacionRepartidor();
+        }
+
+        function ponerMarcadorMapa(marcadorActual, mapaDestino, latLng, icono, popupHtml) {
+            if (!marcadorActual) {
+                marcadorActual = L.marker(latLng, { icon: icono }).addTo(mapaDestino);
+                marcadorActual.bindPopup(popupHtml);
+            } else {
+                marcadorActual.setLatLng(latLng);
+                marcadorActual.setIcon(icono);
+                marcadorActual.setPopupContent(popupHtml);
+            }
+            return marcadorActual;
         }
 
         async function actualizarUbicacionRepartidor() {
+            const detalles = document.getElementById('mapaDetalles');
             try {
-                const res = await fetch(`${API_URL}/pedidos`);
-                const pedidos = await res.json();
+                const [resPedidos, resRepartidores] = await Promise.all([
+                    fetch(`${API_URL}/pedidos`, { signal: AbortSignal.timeout(15000) }),
+                    fetch(`${API_URL}/repartidores`, { signal: AbortSignal.timeout(15000) })
+                ]);
+                const pedidos = await resPedidos.json();
+                const repartidores = await resRepartidores.json();
                 const misPedidos = pedidos.filter(p => p.cliente_id === usuarioId);
-                
+
                 if (misPedidos.length === 0) {
-                    document.getElementById('mapaDetalles').innerHTML = 'No hay pedidos asignados';
+                    limpiarMapaSeguimiento();
+                    detalles.innerHTML = 'No hay pedidos asignados';
                     return;
                 }
 
@@ -3191,46 +3302,224 @@ async function cargarHistorial() {
                     // 'entregado'. Este mensaje distingue ese caso de "todavía no
                     // asignaron a nadie", para que no quede como un error confuso.
                     const ultimoPedido = misPedidos.sort((a, b) => b.id - a.id)[0];
-                    if (marcadorRepartidor) {
-                        mapa.removeLayer(marcadorRepartidor);
-                        marcadorRepartidor = null;
-                    }
-                    document.getElementById('mapaDetalles').innerHTML = (ultimoPedido && ultimoPedido.estado === 'entregado')
+                    limpiarMapaSeguimiento();
+                    detalles.innerHTML = (ultimoPedido && ultimoPedido.estado === 'entregado')
                         ? '✅ Tu pedido fue entregado.'
                         : 'Esperando asignación...';
                     return;
                 }
 
-                const resRepartidores = await fetch(`${API_URL}/repartidores`);
-                const repartidores = await resRepartidores.json();
+                const puntoRetiroMapa = latLngDe(pedidoAsignado, 'origen');
+                const puntoEntregaMapa = latLngDe(pedidoAsignado, 'destino');
+
+                if (puntoRetiroMapa) {
+                    marcadorRetiroSeg = ponerMarcadorMapa(marcadorRetiroSeg, mapa, puntoRetiroMapa,
+                        iconoEmojiMapa('📦', '#16a34a', 34), '📦 Punto de retiro');
+                }
+                if (puntoEntregaMapa) {
+                    marcadorEntregaSeg = ponerMarcadorMapa(marcadorEntregaSeg, mapa, puntoEntregaMapa,
+                        iconoEmojiMapa('🏁', '#dc2626', 34), '🏁 Punto de entrega');
+                }
+
                 const repartidor = repartidores.find(r => Number(r.id) === Number(pedidoAsignado.repartidor_id));
+                const posicionRepartidor = repartidor && repartidor.gps_activo ? latLngDe(repartidor, 'ubicacion') : null;
 
-                if (!repartidor || !repartidor.gps_activo || repartidor.ubicacion_lat === null || repartidor.ubicacion_lng === null) {
-                    document.getElementById('mapaDetalles').innerHTML = 'El repartidor todavía no activó su GPS.';
-                    return;
+                if (!posicionRepartidor) {
+                    if (marcadorRepartidor) {
+                        mapa.removeLayer(marcadorRepartidor);
+                        marcadorRepartidor = null;
+                    }
+                    detalles.innerHTML = 'El repartidor todavía no activó su GPS.';
+                } else {
+                    const reciente = ubicacionEsReciente(repartidor);
+                    const nombre = escaparTextoMapa(repartidor.nombre || `Repartidor #${repartidor.id}`);
+                    const moto = [repartidor.marca_moto, repartidor.modelo_moto].filter(Boolean).map(escaparTextoMapa).join(' ');
+                    const placa = repartidor.placa ? escaparTextoMapa(repartidor.placa) : '';
+
+                    marcadorRepartidor = ponerMarcadorMapa(
+                        marcadorRepartidor, mapa, posicionRepartidor,
+                        iconoEmojiMapa('🛵', reciente ? '#2563eb' : '#6b7280', 42),
+                        `🛵 <strong>${nombre}</strong><br>Pedido #${pedidoAsignado.id}`
+                    );
+
+                    const yendoAlRetiro = pedidoAsignado.estado !== 'en_camino';
+                    const etapa = {
+                        asignado: 'Tu pedido fue asignado; todavía no salió hacia el retiro.',
+                        en_retiro: 'Va en camino al punto de retiro.',
+                        en_camino: 'Ya retiró el paquete y va hacia el punto de entrega.'
+                    }[pedidoAsignado.estado] || '';
+                    const distancia = calcularDistanciaHastaRetiroKm(
+                        posicionRepartidor[0], posicionRepartidor[1],
+                        coordenadasPedido(pedidoAsignado, yendoAlRetiro ? 'origen' : 'destino')
+                    );
+
+                    detalles.innerHTML = `
+                        🛵 <strong>${nombre}</strong>${moto ? ` · ${moto}` : ''}${placa ? ` · Placa ${placa}` : ''}<br>
+                        Pedido #${pedidoAsignado.id} — ${etapa}<br>
+                        ${distancia !== null ? `📏 A unos ${distancia} km (en línea recta) del punto de ${yendoAlRetiro ? 'retiro' : 'entrega'}.<br>` : ''}
+                        ${reciente
+                            ? `🕒 Ubicación actualizada ${textoHaceTiempo(repartidor.segundos_desde_ubicacion)}.`
+                            : `⚠️ Última posición recibida ${textoHaceTiempo(repartidor.segundos_desde_ubicacion)}. Puede estar usando otra app (como Google Maps): la posición se actualiza cuando vuelve a abrir JMMotocourier.`}
+                        <br><button type="button" onclick="reajustarVistaMapa()" style="width:auto; margin:8px 0 0; padding:6px 12px; font-size:12px;">🎯 Ver todo el recorrido</button>
+                    `;
                 }
 
-                const baseLatitude = Number(repartidor.ubicacion_lat);
-                const baseLongitude = Number(repartidor.ubicacion_lng);
-
-                if (marcadorRepartidor) {
-                    mapa.removeLayer(marcadorRepartidor);
+                // Solo se ajusta la vista al abrir el mapa (o al tocar "Ver todo"):
+                // en cada refresco automático no se mueve, así el cliente puede
+                // hacer zoom o arrastrar sin que se le vuelva a centrar solo.
+                if (ajustarVistaMapa) {
+                    const puntos = [posicionRepartidor, puntoRetiroMapa, puntoEntregaMapa].filter(Boolean);
+                    if (puntos.length === 1) {
+                        mapa.setView(puntos[0], 15);
+                    } else if (puntos.length > 1) {
+                        mapa.fitBounds(puntos, { padding: [40, 40], maxZoom: 16 });
+                    }
+                    ajustarVistaMapa = false;
                 }
-
-                marcadorRepartidor = L.marker([baseLatitude, baseLongitude], {
-                    title: `Repartidor #${pedidoAsignado.repartidor_id}`
-                }).addTo(mapa);
-
-                marcadorRepartidor.bindPopup(`🛵 Repartidor #${pedidoAsignado.repartidor_id}<br>Pedido #${pedidoAsignado.id}`);
-                marcadorRepartidor.openPopup();
-                mapa.setView([baseLatitude, baseLongitude], 15);
-
-                document.getElementById('mapaDetalles').innerHTML = `
-                    🛵 Repartidor #${pedidoAsignado.repartidor_id} en camino<br>
-                    Pedido #${pedidoAsignado.id} - ${pedidoAsignado.estado}
-                `;
             } catch (error) {
                 console.error(error);
+            }
+        }
+
+        // ---- Mapa del administrador: todos los repartidores con GPS activo ----
+
+        let mapaAdmin = null;
+        const marcadoresAdmin = new Map();
+        let ajustarVistaAdmin = true;
+        let intervaloMapaAdmin = null;
+
+        function iniciarMapaAdmin() {
+            if (!mapaAdmin) {
+                mapaAdmin = L.map('mapaAdmin').setView([-25.5095, -54.6132], 13);
+                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                    attribution: '&copy; OpenStreetMap contributors',
+                    subdomains: 'abc',
+                    maxZoom: 19
+                }).addTo(mapaAdmin);
+            }
+
+            mapaAdmin.invalidateSize();
+            ajustarVistaAdmin = true;
+            actualizarMapaAdmin();
+
+            if (intervaloMapaAdmin === null) {
+                intervaloMapaAdmin = setInterval(() => {
+                    const visible = !document.getElementById('seccionMapaAdmin').classList.contains('hidden');
+                    if (visible && document.visibilityState === 'visible') actualizarMapaAdmin();
+                }, 10000);
+            }
+        }
+
+        function centrarRepartidorMapaAdmin(id) {
+            const marcador = marcadoresAdmin.get(Number(id));
+            if (!marcador || !mapaAdmin) return;
+            mapaAdmin.setView(marcador.getLatLng(), 16);
+            marcador.openPopup();
+            document.getElementById('mapaAdmin').scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+
+        function verTodosMapaAdmin() {
+            ajustarVistaAdmin = true;
+            actualizarMapaAdmin();
+        }
+
+        async function actualizarMapaAdmin() {
+            const resumen = document.getElementById('mapaAdminResumen');
+            const lista = document.getElementById('mapaAdminLista');
+
+            try {
+                const [resRepartidores, resPedidos] = await Promise.all([
+                    fetch(`${API_URL}/repartidores`, { signal: AbortSignal.timeout(15000) }),
+                    fetch(`${API_URL}/pedidos`, { signal: AbortSignal.timeout(15000) })
+                ]);
+                if (!resRepartidores.ok || !resPedidos.ok) throw new Error('No se pudo cargar el mapa');
+                const repartidores = await resRepartidores.json();
+                const pedidos = await resPedidos.json();
+
+                const aprobados = repartidores.filter(r => r.estado_aprobacion === 'aprobado');
+                const conGps = aprobados.filter(r => r.gps_activo && latLngDe(r, 'ubicacion'));
+                const enCurso = pedidos.filter(p => p.repartidor_id && ['asignado', 'en_retiro', 'en_camino'].includes(p.estado));
+
+                const idsVisibles = new Set(conGps.map(r => Number(r.id)));
+                marcadoresAdmin.forEach((marcador, id) => {
+                    if (!idsVisibles.has(id)) {
+                        mapaAdmin.removeLayer(marcador);
+                        marcadoresAdmin.delete(id);
+                    }
+                });
+
+                let libres = 0;
+                let ocupados = 0;
+                let sinSenal = 0;
+                const filas = [];
+
+                conGps.forEach(r => {
+                    const id = Number(r.id);
+                    const reciente = ubicacionEsReciente(r);
+                    const pedidosR = enCurso.filter(p => Number(p.repartidor_id) === id);
+                    const ocupado = pedidosR.length > 0;
+                    const color = !reciente ? '#6b7280' : (ocupado ? '#f97316' : '#22c55e');
+                    const nombre = escaparTextoMapa(r.nombre || `Repartidor #${r.id}`);
+                    const moto = [r.marca_moto, r.modelo_moto].filter(Boolean).map(escaparTextoMapa).join(' ');
+                    const estadoTexto = ocupado
+                        ? pedidosR.map(p => `Pedido #${p.id} (${formatearEstado(p.estado)})`).join(', ')
+                        : 'Libre';
+
+                    if (!reciente) sinSenal++;
+                    else if (ocupado) ocupados++;
+                    else libres++;
+
+                    const popup = `
+                        🛵 <strong>${nombre}</strong><br>
+                        ${r.telefono ? `📞 ${escaparTextoMapa(r.telefono)}<br>` : ''}
+                        ${moto || r.placa ? `${moto}${r.placa ? ` · Placa ${escaparTextoMapa(r.placa)}` : ''}<br>` : ''}
+                        ${estadoTexto}<br>
+                        🕒 ${textoHaceTiempo(r.segundos_desde_ubicacion)}`;
+
+                    const posicion = latLngDe(r, 'ubicacion');
+                    let marcador = marcadoresAdmin.get(id);
+                    if (!marcador) {
+                        marcador = L.marker(posicion, { icon: iconoEmojiMapa('🛵', color, 40) }).addTo(mapaAdmin);
+                        marcador.bindPopup(popup);
+                        marcador.bindTooltip(nombre, { permanent: true, direction: 'top', offset: [0, -22] });
+                        marcadoresAdmin.set(id, marcador);
+                    } else {
+                        marcador.setLatLng(posicion);
+                        marcador.setIcon(iconoEmojiMapa('🛵', color, 40));
+                        marcador.setPopupContent(popup);
+                        marcador.setTooltipContent(nombre);
+                    }
+
+                    filas.push(`
+                        <div class="pedido-card" style="display:flex; justify-content:space-between; align-items:center; gap:8px; padding:10px 12px;">
+                            <div style="font-size:13px; line-height:1.5;">
+                                <span style="color:${color};">●</span> <strong>${nombre}</strong>${r.bloqueado ? ' ⛔ bloqueado' : ''}<br>
+                                <span style="color:#94a3b8;">${estadoTexto} · ${textoHaceTiempo(r.segundos_desde_ubicacion)}</span>
+                            </div>
+                            <button type="button" onclick="centrarRepartidorMapaAdmin(${id})" style="width:auto; margin:0; padding:6px 12px; font-size:12px;">📍 Ver</button>
+                        </div>`);
+                });
+
+                const sinGps = aprobados.length - conGps.length;
+                resumen.innerHTML = `
+                    🟢 <strong>${libres}</strong> libres · 🟠 <strong>${ocupados}</strong> con pedido · ⚪ <strong>${sinSenal}</strong> sin señal reciente
+                    · Sin GPS activo: <strong>${sinGps}</strong><br>
+                    Actualizado a las ${new Date().toLocaleTimeString('es-PY')}.
+                    <button type="button" onclick="verTodosMapaAdmin()" style="width:auto; margin:6px 0 0 8px; padding:4px 10px; font-size:12px;">🎯 Ver todos</button>`;
+
+                lista.innerHTML = filas.length
+                    ? filas.join('')
+                    : '<div class="no-data">Ningún repartidor tiene el GPS activo en este momento.</div>';
+
+                if (ajustarVistaAdmin && conGps.length > 0) {
+                    const puntos = conGps.map(r => latLngDe(r, 'ubicacion'));
+                    if (puntos.length === 1) mapaAdmin.setView(puntos[0], 15);
+                    else mapaAdmin.fitBounds(puntos, { padding: [50, 50], maxZoom: 16 });
+                    ajustarVistaAdmin = false;
+                }
+            } catch (error) {
+                console.error(error);
+                resumen.textContent = 'No se pudo actualizar el mapa. Se reintenta automáticamente.';
             }
         }
 
