@@ -2059,6 +2059,11 @@ async function crearPedidoConTarifa() {
 
                 document.getElementById('chatMensajes').innerHTML = html;
                 document.getElementById('chatMensajes').scrollTop = document.getElementById('chatMensajes').scrollHeight;
+                if (msgs.length > 0) {
+                    const ultimoVisto = Math.max(...msgs.map(m => Number(m.id)));
+                    guardarChatVisto(pedidoActivoChat, ultimoVisto);
+                    chatAvisadoHasta[pedidoActivoChat] = Math.max(chatAvisadoHasta[pedidoActivoChat] || 0, ultimoVisto);
+                }
 
                 if (hayMensajeNuevoDeOtro) {
                     reproducirTonoMensajeChat();
@@ -2223,8 +2228,11 @@ async function crearPedidoConTarifa() {
         function iniciarActualizacionMiRuta() {
             if (intervaloMiRuta !== null) return;
 
+            // Se consulta en cualquier pantalla (no solo en "Mi ruta"): si el
+            // repartidor está en el Historial o en un chat y le asignan un
+            // pedido, la alerta con sonido tiene que saltar igual.
             intervaloMiRuta = setInterval(() => {
-                if (esRepartidor && !document.getElementById('seccionMiRuta').classList.contains('hidden')) {
+                if (esRepartidor && usuarioId && document.visibilityState === 'visible') {
                     cargarPanelMiRuta(true);
                 }
             }, 8000);
@@ -2236,8 +2244,6 @@ async function crearPedidoConTarifa() {
         // conexión, o llega un push mientras la app está abierta.
         function refrescarMiRutaYa() {
             if (!esRepartidor || !usuarioId) return;
-            const seccion = document.getElementById('seccionMiRuta');
-            if (!seccion || seccion.classList.contains('hidden')) return;
             cargarPanelMiRuta(true);
         }
         document.addEventListener('visibilitychange', () => {
@@ -2258,31 +2264,101 @@ async function crearPedidoConTarifa() {
             });
         }
 
+        // Cartel fijo arriba de la pantalla, no bloqueante, que se cierra solo.
+        function mostrarAvisoSuperior(texto, alTocar) {
+            const anterior = document.getElementById('avisoMensajeChat');
+            if (anterior) anterior.remove();
+            const aviso = document.createElement('button');
+            aviso.id = 'avisoMensajeChat';
+            aviso.type = 'button';
+            aviso.textContent = texto;
+            aviso.style.cssText = 'position:fixed; top:12px; left:50%; transform:translateX(-50%); z-index:9000; width:calc(100% - 24px); max-width:440px; padding:14px 16px; font-size:15px; font-weight:700; background:var(--color-primary); color:#fff; border:none; border-radius:var(--radius-md); box-shadow:var(--shadow-lg);';
+            aviso.onclick = () => {
+                aviso.remove();
+                if (alTocar) alTocar();
+            };
+            document.body.appendChild(aviso);
+            setTimeout(() => aviso.remove(), 8000);
+        }
+
         // Llegó un mensaje de chat y la app está abierta. Si esa conversación
         // ya está en pantalla, se actualiza (y suena el tono al cargarla); si
-        // no, suena y aparece un aviso arriba para abrirla con un toque.
+        // no, suena y aparece un aviso arriba para abrirla con un toque. Lo
+        // pueden disparar tanto el aviso push como la revisión periódica de
+        // abajo, así que se descartan repeticiones muy seguidas.
+        const ultimoAvisoMensaje = {};
         function avisarMensajeNuevo(pedidoId) {
             const chatVisible = !document.getElementById('seccionChat').classList.contains('hidden');
             if (chatVisible && Number(pedidoActivoChat) === Number(pedidoId)) {
                 cargarMensajes();
                 return;
             }
+            const ahora = Date.now();
+            if (ahora - (ultimoAvisoMensaje[pedidoId] || 0) < 6000) return;
+            ultimoAvisoMensaje[pedidoId] = ahora;
+
             reproducirTonoMensajeChat();
             if (navigator.vibrate) navigator.vibrate([150, 80, 150]);
+            mostrarAvisoSuperior(
+                pedidoId ? `💬 Mensaje nuevo en el pedido #${pedidoId} — tocá para abrir` : '💬 Mensaje nuevo',
+                pedidoId ? () => abrirChat(Number(pedidoId)) : null
+            );
+        }
 
-            const anterior = document.getElementById('avisoMensajeChat');
-            if (anterior) anterior.remove();
-            const aviso = document.createElement('button');
-            aviso.id = 'avisoMensajeChat';
-            aviso.type = 'button';
-            aviso.textContent = pedidoId ? `💬 Mensaje nuevo en el pedido #${pedidoId} — tocá para abrir` : '💬 Mensaje nuevo';
-            aviso.style.cssText = 'position:fixed; top:12px; left:50%; transform:translateX(-50%); z-index:9000; width:calc(100% - 24px); max-width:440px; padding:14px 16px; font-size:15px; font-weight:700; background:var(--color-primary); color:#fff; border:none; border-radius:var(--radius-md); box-shadow:var(--shadow-lg);';
-            aviso.onclick = () => {
-                aviso.remove();
-                if (pedidoId) abrirChat(Number(pedidoId));
-            };
-            document.body.appendChild(aviso);
-            setTimeout(() => aviso.remove(), 8000);
+        // Revisión periódica de mensajes nuevos de los pedidos en curso. No
+        // depende del aviso push: así el aviso con sonido llega adentro de la
+        // app siempre, esté en la pantalla que esté. Se recuerda por pedido
+        // el último mensaje que ya se vio (chat abierto) o se avisó.
+        const CLAVE_CHAT_VISTO = 'jmmotocourier_chat_visto';
+        const chatAvisadoHasta = {};
+
+        function leerChatVisto() {
+            try { return JSON.parse(localStorage.getItem(CLAVE_CHAT_VISTO)) || {}; } catch (error) { return {}; }
+        }
+        function guardarChatVisto(pedidoId, mensajeId) {
+            try {
+                const visto = leerChatVisto();
+                if ((visto[pedidoId] || 0) >= mensajeId) return;
+                visto[pedidoId] = mensajeId;
+                const claves = Object.keys(visto);
+                if (claves.length > 100) delete visto[claves[0]];
+                localStorage.setItem(CLAVE_CHAT_VISTO, JSON.stringify(visto));
+            } catch (error) {}
+        }
+
+        async function revisarMensajesNuevos(pedidosActivos) {
+            if (!usuarioId) return;
+            const visto = leerChatVisto();
+            for (const pedido of pedidosActivos) {
+                try {
+                    const res = await fetch(`${API_URL}/pedidos/${pedido.id}/mensajes`, { signal: AbortSignal.timeout(15000) });
+                    if (!res.ok) continue;
+                    const mensajes = await res.json();
+                    if (!Array.isArray(mensajes)) continue;
+                    if (mensajes.length === 0) {
+                        // Todavía no hay mensajes: el primero que llegue sí debe avisar.
+                        if (chatAvisadoHasta[pedido.id] === undefined) chatAvisadoHasta[pedido.id] = 0;
+                        continue;
+                    }
+
+                    const ultimoId = Math.max(...mensajes.map(m => Number(m.id)));
+                    const referencia = Math.max(visto[pedido.id] || 0, chatAvisadoHasta[pedido.id] || 0);
+
+                    // Primera vez que se ve este pedido en este celular: se toma
+                    // como punto de partida, sin avisar por mensajes viejos.
+                    if (visto[pedido.id] === undefined && chatAvisadoHasta[pedido.id] === undefined) {
+                        chatAvisadoHasta[pedido.id] = ultimoId;
+                        guardarChatVisto(pedido.id, ultimoId);
+                        continue;
+                    }
+
+                    const hayNuevoDeOtro = mensajes.some(m => Number(m.id) > referencia && Number(m.usuario_id) !== Number(usuarioId));
+                    chatAvisadoHasta[pedido.id] = Math.max(ultimoId, chatAvisadoHasta[pedido.id] || 0);
+                    if (hayNuevoDeOtro) avisarMensajeNuevo(pedido.id);
+                } catch (error) {
+                    console.error('No se pudieron revisar los mensajes del pedido.', error);
+                }
+            }
         }
 
         // Abre directo el chat cuando la app se abrió desde la notificación de un
@@ -2693,6 +2769,7 @@ async function crearPedidoConTarifa() {
                 }
                 pedidosRepartidorConocidos = idsActuales;
                 primeraCargaMiRuta = false;
+                revisarMensajesNuevos(misPedidos);
                 pedidosMiRutaActuales = misPedidos;
 
                 if (misPedidos.length === 0) {
@@ -3908,6 +3985,10 @@ async function cargarHistorial() {
         }
 
         function logout() {
+            if (intervaloNotificacionesCliente !== null) {
+                clearInterval(intervaloNotificacionesCliente);
+                intervaloNotificacionesCliente = null;
+            }
             cerrarAlertaPedidos();
             detenerSeguimientoGpsRepartidor();
             detenerActualizacionMiRuta();
@@ -3943,25 +4024,37 @@ async function cargarHistorial() {
             setTimeout(() => notif.remove(), 5000);
         }
 
+        let intervaloNotificacionesCliente = null;
         function iniciarNotificaciones() {
-            setInterval(async () => {
-                if (usuarioId) {
+            if (intervaloNotificacionesCliente !== null) return;
+            // Se hace una primera revisión enseguida (así los mensajes que ya
+            // estaban quedan como punto de partida) y después cada 5 segundos.
+            const revisar = async () => {
+                if (usuarioId && document.visibilityState === 'visible') {
                     try {
-                        const res = await fetch(`${API_URL}/pedidos`);
+                        const res = await fetch(`${API_URL}/pedidos`, { signal: AbortSignal.timeout(15000) });
                         const pedidos = await res.json();
                         const misPedidos = pedidos.filter(p => p.cliente_id === usuarioId);
-                        
+
                         misPedidos.forEach(p => {
                             if (p.estado === 'asignado' && !notificacionesVistas.includes(p.id)) {
                                 notificacionesVistas.push(p.id);
-                                mostrarNotificacion(`🔔 ¡Tu pedido #${p.id} fue asignado!`);
+                                // Aviso no bloqueante con sonido (antes era un alert() que congelaba la pantalla).
+                                reproducirTonoMensajeChat();
+                                if (navigator.vibrate) navigator.vibrate([150, 80, 150]);
+                                mostrarAvisoSuperior(`🔔 ¡Tu pedido #${p.id} fue asignado a un repartidor!`, null);
                             }
                         });
+
+                        // Mensajes nuevos del repartidor en los pedidos que siguen en curso.
+                        revisarMensajesNuevos(misPedidos.filter(p => p.repartidor_id && ['asignado', 'en_retiro', 'en_camino'].includes(p.estado)));
                     } catch (error) {
                         console.error(error);
                     }
                 }
-            }, 5000);
+            };
+            revisar();
+            intervaloNotificacionesCliente = setInterval(revisar, 5000);
         }
     </script>
     <!-- Script de liquidaciones (admin y repartidores) -->

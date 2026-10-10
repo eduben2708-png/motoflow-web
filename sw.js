@@ -6,6 +6,19 @@
 // mantiene "vivo" en segundo plano solo para esto: no reemplaza a la app,
 // que sigue siendo la página normal (index.html).
 
+// Cada versión nueva del service worker se activa enseguida, sin esperar a que
+// se cierren todas las pestañas de la app. Sin esto, tras actualizar la app
+// seguía corriendo la versión vieja del service worker (que no avisaba a la
+// pantalla de los mensajes nuevos) hasta que el repartidor o el cliente
+// cerraran la app por completo.
+self.addEventListener('install', () => {
+  self.skipWaiting();
+});
+
+self.addEventListener('activate', (evento) => {
+  evento.waitUntil(clients.claim());
+});
+
 self.addEventListener('push', (evento) => {
   let datos = {
     titulo: 'JMMotocourier',
