@@ -1850,9 +1850,15 @@ async function crearPedidoConTarifa() {
                     return;
                 }
 
-                const opcionesRepartidor = repartidores.map(repartidor =>
-                    `<option value="${repartidor.id}">${repartidor.nombre || 'Repartidor'} #${repartidor.id}</option>`
-                ).join('');
+                // Solo se pueden elegir repartidores con el GPS activo; los demás
+                // aparecen deshabilitados (salvo el que ya tiene el pedido, para no
+                // romper su selección actual).
+                const opcionesRepartidor = (repartidorActualId = '') => repartidores.map(repartidor => {
+                    const activo = Boolean(repartidor.gps_activo);
+                    const esActual = String(repartidor.id) === String(repartidorActualId);
+                    const marca = activo ? '🟢' : '⚫ sin GPS';
+                    return `<option value="${repartidor.id}"${activo || esActual ? '' : ' disabled'}${esActual ? ' selected' : ''}>${repartidor.nombre || 'Repartidor'} #${repartidor.id} · ${marca}</option>`;
+                }).join('');
 
                 document.getElementById('listaAdminPedidos').innerHTML = pedidosOperativos
                     .sort((a, b) => b.id - a.id)
@@ -1873,7 +1879,7 @@ async function crearPedidoConTarifa() {
                                     <label>Repartidor</label>
                                     <select id="adminRepartidor-${pedido.id}">
                                         <option value="">Seleccionar repartidor</option>
-                                        ${opcionesRepartidor.replace(`value="${repartidorActual}"`, `value="${repartidorActual}" selected`)}
+                                        ${opcionesRepartidor(repartidorActual)}
                                     </select>
                                 </div>
                                 <div class="admin-control">
