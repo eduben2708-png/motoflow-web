@@ -2254,6 +2254,7 @@ async function crearPedidoConTarifa() {
                 if (!ContextoAudio) return;
 
                 const contexto = new ContextoAudio();
+                if (contexto.state === 'suspended') contexto.resume().catch(() => {});
                 // Patrón más llamativo: dos rondas de tres tonos tipo "alarma", con volumen más alto.
                 const notas = [880, 1180, 880, 1180, 1480, 1480];
 
@@ -2310,22 +2311,133 @@ async function crearPedidoConTarifa() {
             }
         }
 
-        function avisarPedidoNuevo(pedido) {
-            const mensaje = `¡Nuevo pedido asignado! Pedido #${pedido.id}.`;
+        // ---- Alerta de pedido nuevo para el repartidor ----
+        // Al entrar a la app (tocando la notificación, abriéndola, o con la app
+        // ya abierta) aparece esta pantalla completa con el servicio que debe
+        // hacer, suena una alarma que se repite y vibra, hasta que el
+        // repartidor toca "Ver pedido". Se guarda en el celular qué pedidos ya
+        // vio, para no volver a sonar por el mismo pedido.
+        const CLAVE_PEDIDOS_AVISADOS = 'jmmotocourier_pedidos_avisados';
+        let idsEnAlerta = new Set();
+        let intervaloAlarmaPedido = null;
 
-            // El sonido y la vibración van ANTES de mostrarNotificacion() a
-            // propósito: esa función usa alert(), que es bloqueante y detiene
-            // el hilo de JS hasta que el repartidor lo cierra. Si el tono se
-            // disparara después, quedaría en pausa hasta que se cierre la
-            // alerta y sonaría recién al tocar "Aceptar" en vez de al llegar
-            // el mensaje.
-            reproducirTonoPedidoNuevo();
-            if (navigator.vibrate) navigator.vibrate([250, 100, 250, 100, 250]);
-            if ('Notification' in window && Notification.permission === 'granted') {
-                new Notification('JMMotocourier', { body: mensaje });
+        function leerPedidosAvisados() {
+            try {
+                return new Set((JSON.parse(localStorage.getItem(CLAVE_PEDIDOS_AVISADOS)) || []).map(Number));
+            } catch (error) {
+                return new Set();
+            }
+        }
+
+        function guardarPedidosAvisados(conjunto) {
+            try {
+                localStorage.setItem(CLAVE_PEDIDOS_AVISADOS, JSON.stringify([...conjunto].slice(-200)));
+            } catch (error) {
+                console.error('No se pudo guardar los pedidos avisados.', error);
+            }
+        }
+
+        function iniciarAlarmaPedido() {
+            if (intervaloAlarmaPedido !== null) return;
+            const sonar = () => {
+                reproducirTonoPedidoNuevo();
+                if (navigator.vibrate) navigator.vibrate([250, 100, 250, 100, 250]);
+            };
+            const finAlarma = Date.now() + 90000;
+            sonar();
+            // Se repite cada 3 segundos, hasta 90 segundos como máximo (por si
+            // el repartidor dejó el celular sin atender).
+            intervaloAlarmaPedido = setInterval(() => {
+                if (Date.now() > finAlarma) detenerAlarmaPedido();
+                else sonar();
+            }, 3000);
+        }
+
+        function detenerAlarmaPedido() {
+            if (intervaloAlarmaPedido !== null) clearInterval(intervaloAlarmaPedido);
+            intervaloAlarmaPedido = null;
+            if (navigator.vibrate) navigator.vibrate(0);
+        }
+
+        function textoTipoServicio(tipo) {
+            return { delivery: 'Delivery / entrega', retiro: 'Retiro / recogida', encargo: 'Compra por encargo' }[tipo] || tipo || 'Servicio';
+        }
+
+        function cerrarAlertaPedidos() {
+            idsEnAlerta = new Set();
+            detenerAlarmaPedido();
+            const overlay = document.getElementById('alertaPedidoNuevo');
+            if (overlay) overlay.remove();
+        }
+
+        function mostrarAlertaPedidos(pedidos, repartidor) {
+            const hayNuevos = pedidos.some(p => !idsEnAlerta.has(Number(p.id)));
+            idsEnAlerta = new Set(pedidos.map(p => Number(p.id)));
+
+            let overlay = document.getElementById('alertaPedidoNuevo');
+            if (!overlay) {
+                overlay = document.createElement('div');
+                overlay.id = 'alertaPedidoNuevo';
+                overlay.setAttribute('role', 'alertdialog');
+                overlay.style.cssText = 'position:fixed; inset:0; z-index:10000; background:rgba(8,13,26,.96); overflow-y:auto; padding:20px 16px; display:flex; flex-direction:column; align-items:center;';
+                document.body.appendChild(overlay);
             }
 
-            mostrarNotificacion(mensaje);
+            const tarjetas = pedidos.map(p => {
+                const distancia = repartidor
+                    ? calcularDistanciaHastaRetiroKm(repartidor.ubicacion_lat, repartidor.ubicacion_lng, coordenadasPedido(p, 'origen'))
+                    : null;
+                const tarifa = Number(p.tarifa_servicio || 0);
+                return `
+                    <div style="width:100%; max-width:440px; background:var(--color-bg-elevated); border:1px solid var(--color-border-strong); border-radius:var(--radius-lg); padding:16px; margin-bottom:12px; font-size:15px; line-height:1.6; color:var(--text-primary);">
+                        <div style="font-size:18px; font-weight:800; margin-bottom:6px;">Pedido #${p.id} · ${escaparTextoMapa(textoTipoServicio(p.tipo))}</div>
+                        <div>📦 <strong>Retiro:</strong> ${escaparTextoMapa(p.origen_direccion || 'Sin dirección')}</div>
+                        <div>🏁 <strong>Entrega:</strong> ${escaparTextoMapa(p.destino_direccion || 'Sin dirección')}</div>
+                        <div>📏 <strong>Distancia del servicio:</strong> ${Number(p.distancia_km || 0).toLocaleString('es-PY')} km</div>
+                        ${distancia !== null ? `<div>🧭 <strong>Estás a:</strong> ${distancia} km del retiro</div>` : ''}
+                        ${tarifa ? `<div>🛵 <strong>Tarifa del servicio:</strong> Gs. ${tarifa.toLocaleString('es-PY')}</div>` : ''}
+                        ${p.pago_servicio_retiro ? `<div style="color:#ef4444; font-weight:700;">⚠️ Cobrale la tarifa de servicio AL VENDEDOR antes de irte.</div>` : ''}
+                    </div>`;
+            }).join('');
+
+            overlay.innerHTML = `
+                <div style="font-size:54px; line-height:1; margin-top:8px;">🔔</div>
+                <div style="font-size:26px; font-weight:800; margin:8px 0 16px; text-align:center; color:var(--text-primary);">
+                    ${pedidos.length > 1 ? `¡Tenés ${pedidos.length} pedidos nuevos!` : '¡Tenés un pedido nuevo!'}
+                </div>
+                ${tarjetas}
+                <button type="button" onclick="confirmarPedidosAvisados()" style="width:100%; max-width:440px; margin:8px 0 24px; padding:16px; font-size:18px; font-weight:800; background:var(--color-success); border:none; border-radius:var(--radius-md); color:#fff;">Ver pedido</button>
+            `;
+
+            // Si el navegador bloqueó el sonido porque todavía no hubo ningún toque
+            // en la pantalla, el primer toque lo activa.
+            overlay.onpointerdown = () => {
+                overlay.onpointerdown = null;
+                if (intervaloAlarmaPedido !== null) reproducirTonoPedidoNuevo();
+            };
+
+            if (hayNuevos) {
+                detenerAlarmaPedido();
+                iniciarAlarmaPedido();
+            }
+        }
+
+        function confirmarPedidosAvisados() {
+            const avisados = leerPedidosAvisados();
+            const primero = [...idsEnAlerta][0];
+            idsEnAlerta.forEach(id => avisados.add(id));
+            guardarPedidosAvisados(avisados);
+            cerrarAlertaPedidos();
+
+            // Deja la lista actualizada y marca el pedido en pantalla un momento.
+            Promise.resolve(cargarPanelMiRuta()).then(() => {
+                const tarjeta = document.getElementById(`tarjeta-pedido-${primero}`);
+                if (!tarjeta) return;
+                tarjeta.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                tarjeta.style.transition = 'box-shadow .4s';
+                tarjeta.style.boxShadow = '0 0 0 3px var(--color-success)';
+                setTimeout(() => { tarjeta.style.boxShadow = ''; }, 3500);
+            });
         }
 
         async function cargarPanelMiRuta(verificarNuevos = false) {
@@ -2378,21 +2490,21 @@ async function crearPedidoConTarifa() {
                     .sort((a, b) => b.id - a.id);
 
                 const idsActuales = new Set(misPedidos.map(pedido => pedido.id));
-                if (verificarNuevos && !primeraCargaMiRuta) {
-                    // El tono es solo para avisar de una asignación nueva: si el
-                    // pedido ya está "en_retiro" o "en_camino" es porque el
-                    // repartidor ya lo aceptó y está trabajando en él, así que no
-                    // debe volver a sonar.
-                    const pedidosNuevos = misPedidos
-                        .filter(pedido => !pedidosRepartidorConocidos.has(pedido.id) && pedido.estado === 'asignado');
-                    // El aviso usa alert(), que congela la pantalla hasta que se
-                    // cierra. Si se disparara acá, la lista de pedidos no se
-                    // dibujaría hasta tocar "Aceptar" (y se vería el pedido
-                    // recién al actualizar). Por eso se difiere un instante: así
-                    // primero se pinta la lista y recién después suena y avisa.
-                    if (pedidosNuevos.length > 0) {
-                        setTimeout(() => pedidosNuevos.forEach(avisarPedidoNuevo), 400);
-                    }
+
+                // Todo pedido "asignado" que el repartidor todavía no vio en ESTE
+                // celular dispara la alerta con sonido: sea porque llegó recién,
+                // o porque llegó mientras la app estaba cerrada (en ese caso la
+                // alerta salta apenas la abre). Los pedidos que ya aceptó
+                // ("en_retiro" / "en_camino") nunca suenan de nuevo.
+                const yaAvisados = leerPedidosAvisados();
+                const pendientesDeAviso = misPedidos
+                    .filter(pedido => pedido.estado === 'asignado' && !yaAvisados.has(Number(pedido.id)));
+                // La alerta usa pantalla completa: se difiere un instante para que
+                // la lista de abajo se dibuje primero.
+                if (pendientesDeAviso.length > 0) {
+                    setTimeout(() => mostrarAlertaPedidos(pendientesDeAviso, repartidor), 300);
+                } else if (idsEnAlerta.size > 0) {
+                    cerrarAlertaPedidos();
                 }
                 pedidosRepartidorConocidos = idsActuales;
                 primeraCargaMiRuta = false;
@@ -2474,7 +2586,7 @@ async function crearPedidoConTarifa() {
                             : `<div style="color:#4ade80; font-weight:700; margin-top:4px;">✅ Servicio ya cobrado al vendedor${pedido.forma_pago_servicio ? ` (${formatearTipoPago(pedido.forma_pago_servicio)})` : ''}.</div>`);
 
                     return `
-                        <div class="pedido-card">
+                        <div class="pedido-card" id="tarjeta-pedido-${pedido.id}">
                             <div class="pedido-header">
                                 <div class="pedido-id">Pedido #${pedido.id}</div>
                                 <div class="estado ${pedido.estado}">${formatearEstado(pedido.estado)}</div>
@@ -3608,6 +3720,7 @@ async function cargarHistorial() {
         }
 
         function logout() {
+            cerrarAlertaPedidos();
             detenerSeguimientoGpsRepartidor();
             detenerActualizacionMiRuta();
             if (esRepartidor) desuscribirseDeNotificacionesPush();
