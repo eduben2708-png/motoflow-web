@@ -25,6 +25,39 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Poppins:wght@600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="css/estilos.css">
+    <style>
+        /* ===== Pantalla "Mi ruta" del repartidor: compacta y pensada para usar en la calle ===== */
+        .ruta-barra { display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:10px; padding:8px 10px; background:var(--color-bg-elevated); border:1px solid var(--color-border); border-radius:var(--radius-md); }
+        .ruta-barra-info { display:flex; align-items:center; gap:10px; min-width:0; flex-wrap:wrap; font-size:12px; color:var(--text-secondary); }
+        .ruta-barra-info #miCalificacionRepartidor { color:#fbbf24; font-weight:700; white-space:nowrap; }
+        .ruta-barra-info #estadoGpsRepartidor { margin:0; padding:0; background:none; border:none; font-size:12px; color:var(--text-secondary); }
+        #estadoGpsRepartidor.ok::before { content:'● '; color:var(--color-success); }
+        #estadoGpsRepartidor.off::before { content:'● '; color:#f87171; }
+        .ruta-gps-btn { flex:none; width:auto; margin:0; padding:6px 12px; font-size:12px; font-weight:700; background:var(--color-info); border-radius:var(--radius-pill); }
+
+        .ruta-card { padding:14px; }
+        .ruta-puntos { display:flex; flex-direction:column; gap:10px; margin-bottom:12px; }
+        .ruta-punto { padding:10px 12px; border-radius:var(--radius-md); background:var(--color-bg-elevated-2); border:1px solid var(--color-border); }
+        .ruta-punto.activo { border-color:var(--color-primary); background:var(--color-primary-soft); }
+        .ruta-punto-etiqueta { display:block; font-size:11px; font-weight:800; letter-spacing:.06em; color:var(--text-secondary); margin-bottom:2px; }
+        .ruta-punto.activo .ruta-punto-etiqueta { color:#93c5fd; }
+        .ruta-punto-texto { font-size:18px; font-weight:700; line-height:1.25; color:var(--text-primary); word-break:break-word; }
+        .ruta-datos { display:flex; flex-wrap:wrap; gap:6px; margin-bottom:10px; }
+        .ruta-dato { font-size:12px; padding:4px 10px; border-radius:var(--radius-pill); background:var(--color-bg-elevated-2); border:1px solid var(--color-border); color:var(--text-secondary); white-space:nowrap; }
+        .ruta-cobro { display:flex; justify-content:space-between; align-items:baseline; gap:8px; margin-bottom:12px; padding:10px 12px; border-radius:var(--radius-md); background:var(--color-success-soft); border:1px solid rgba(34,197,94,.35); }
+        .ruta-cobro-etiqueta { font-size:12px; color:var(--text-secondary); }
+        .ruta-cobro-monto { font-size:22px; font-weight:800; color:#4ade80; white-space:nowrap; }
+        .ruta-accion { display:flex; flex-direction:column; gap:8px; margin-bottom:10px; }
+        .ruta-accion select { margin:0; padding:14px 12px; font-size:15px; }
+        /* Botones de acción principal (Iniciar viaje / Paquete retirado / Entregado): grandes, para tocar sin errar */
+        .ruta-accion button { margin:0; width:100%; min-height:64px; padding:18px 14px; font-size:19px; font-weight:800; border-radius:var(--radius-md); }
+        /* Botones secundarios (chat, llamar, navegar): chicos y en una sola fila */
+        .ruta-secundarios { display:grid; grid-auto-flow:column; grid-auto-columns:1fr; gap:8px; }
+        .ruta-sec { display:flex; align-items:center; justify-content:center; gap:4px; min-height:42px; padding:8px 6px; margin:0; font-size:13px; font-weight:700; border:none; border-radius:var(--radius-md); color:#fff !important; text-decoration:none; cursor:pointer; text-align:center; }
+        .ruta-sec-chat { background:#9c27b0; }
+        .ruta-sec-llamar { background:#15803d; }
+        .ruta-sec-navegar { background:#2563eb; }
+    </style>
 </head>
 <body>
     <div class="bg-decor" aria-hidden="true"></div>
@@ -426,12 +459,12 @@
 
                 <!-- PANEL DEL REPARTIDOR -->
                 <div id="seccionMiRuta" class="hidden">
-                    <div class="repartidor-panel">
-                        <h3>Mi ruta de reparto</h3>
-                        <p>Acá verás únicamente los pedidos asignados a tu cuenta.</p>
-                        <div id="miCalificacionRepartidor" class="gps-estado"></div>
-                        <div id="estadoGpsRepartidor" class="gps-estado">Ubicación GPS: sin actualizar.</div>
-                        <button class="btn-gps" onclick="iniciarSeguimientoGpsRepartidor()">Activar GPS automático</button>
+                    <div class="ruta-barra">
+                        <div class="ruta-barra-info">
+                            <span id="miCalificacionRepartidor"></span>
+                            <span id="estadoGpsRepartidor" class="off">GPS sin actualizar</span>
+                        </div>
+                        <button class="ruta-gps-btn" onclick="iniciarSeguimientoGpsRepartidor()">📍 Activar GPS</button>
                     </div>
                     <div id="listaMiRuta"></div>
                 </div>
@@ -2701,6 +2734,15 @@ async function crearPedidoConTarifa() {
             });
         }
 
+        // Texto corto del estado del GPS en la barra de arriba, con un punto verde
+        // (activo) o rojo (apagado/con problemas).
+        function mostrarEstadoGps(texto, activo) {
+            const elemento = document.getElementById('estadoGpsRepartidor');
+            if (!elemento) return;
+            elemento.textContent = texto;
+            elemento.className = activo ? 'ok' : 'off';
+        }
+
         async function cargarPanelMiRuta(verificarNuevos = false) {
             const lista = document.getElementById('listaMiRuta');
             const estadoGps = document.getElementById('estadoGpsRepartidor');
@@ -2732,14 +2774,12 @@ async function crearPedidoConTarifa() {
                     return;
                 }
 
-                estadoGps.textContent = repartidor.gps_activo
-                    ? 'Ubicación GPS: activa. Estás disponible para asignaciones automáticas.'
-                    : 'Ubicación GPS: desactivada. Tocá el botón para activarla.';
+                mostrarEstadoGps(repartidor.gps_activo ? 'GPS activo' : 'GPS apagado: tocá "Activar GPS"', Boolean(repartidor.gps_activo));
 
                 const calificacion = Number(repartidor.calificacion || 0);
                 document.getElementById('miCalificacionRepartidor').textContent = calificacion > 0
-                    ? `Tu calificación: ⭐ ${calificacion.toFixed(1)} (${repartidor.total_entregas || 0} entregas)`
-                    : 'Todavía no tenés calificaciones de clientes.';
+                    ? `⭐ ${calificacion.toFixed(1)} · ${repartidor.total_entregas || 0} entregas`
+                    : 'Sin calificaciones todavía';
 
                 const respuestaPedidos = await fetch(`${API_URL}/pedidos`, { signal: AbortSignal.timeout(15000) });
                 if (!respuestaPedidos.ok) throw new Error('No se pudieron cargar los pedidos');
@@ -2831,7 +2871,7 @@ async function crearPedidoConTarifa() {
                     // por eso este botón queda siempre visible y apunta al punto
                     // que corresponde a la etapa actual (retiro o entrega).
                     const irAlRetiro = pedido.estado !== 'en_camino';
-                    const botonNavegar = `<button class="btn-gps" style="background:#2563eb;" onclick="navegarPedido(${pedido.id}, '${irAlRetiro ? 'origen' : 'destino'}')">🧭 ${irAlRetiro ? 'Navegar al punto de retiro' : 'Navegar al punto de entrega'}</button>`;
+                    const botonNavegar = `<button type="button" class="ruta-sec ruta-sec-navegar" onclick="navegarPedido(${pedido.id}, '${irAlRetiro ? 'origen' : 'destino'}')">🧭 Navegar</button>`;
 
                     // Cuando el vendedor paga el servicio al retirar, "tipo_pago" no
                     // aplica (ese campo es lo que abona el destinatario al entregar):
@@ -2847,28 +2887,49 @@ async function crearPedidoConTarifa() {
                             ? `<div style="color:#ef4444; font-weight:700; margin-top:4px;">⚠️ Cobrarle Gs. ${montoServicio.toLocaleString('es-PY')} de tarifa de servicio AL VENDEDOR, antes de irte con el paquete.</div>`
                             : `<div style="color:#4ade80; font-weight:700; margin-top:4px;">✅ Servicio ya cobrado al vendedor${pedido.forma_pago_servicio ? ` (${formatearTipoPago(pedido.forma_pago_servicio)})` : ''}.</div>`);
 
+                    const retiroActivo = pedido.estado !== 'en_camino';
+                    const botonLlamar = pedido.telefono_destinatario
+                        ? `<a class="ruta-sec ruta-sec-llamar" href="tel:+595${pedido.telefono_destinatario}">📞 Llamar</a>`
+                        : '';
+
                     return `
-                        <div class="pedido-card" id="tarjeta-pedido-${pedido.id}">
+                        <div class="pedido-card ruta-card" id="tarjeta-pedido-${pedido.id}">
                             <div class="pedido-header">
                                 <div class="pedido-id">Pedido #${pedido.id}</div>
                                 <div class="estado ${pedido.estado}">${formatearEstado(pedido.estado)}</div>
                             </div>
-                            <div style="font-size: 13px; color: #cbd5e1; line-height: 1.7;">
-                                <div>📍 <strong>Retiro:</strong> ${pedido.origen_direccion || 'Sin dirección'}</div>
-                                <div>📍 <strong>Entrega:</strong> ${pedido.destino_direccion || 'Sin dirección'}</div>
-                                <div>🛵 <strong>Servicio:</strong> ${pedido.tipo}</div>
-                                <div>📏 <strong>Distancia del servicio:</strong> ${Number(pedido.distancia_km || 0).toLocaleString('es-PY')} km</div>
-                                <div>🧭 <strong>Distancia aprox. hasta el retiro:</strong> ${distanciaHastaRetiro === null ? 'Activá el GPS para calcularla' : `${distanciaHastaRetiro} km`}</div>
-                                <div>🛵 <strong>Tarifa del servicio:</strong> ${tarifaServicio ? `Gs. ${tarifaServicio.toLocaleString('es-PY')}` : 'No disponible'}</div>
-                                <div>💳 <strong>Forma de pago:</strong> ${textoFormaPago}</div>
-                                <div>💰 <strong>Total a cobrar al cliente:</strong> Gs. ${montoACobrarEntrega.toLocaleString('es-PY')}</div>
-                                ${avisoServicio}
+
+                            <div class="ruta-puntos">
+                                <div class="ruta-punto ${retiroActivo ? 'activo' : ''}">
+                                    <span class="ruta-punto-etiqueta">📦 RETIRO${retiroActivo ? ' · AHORA' : ''}</span>
+                                    <div class="ruta-punto-texto">${pedido.origen_direccion || 'Sin dirección'}</div>
+                                </div>
+                                <div class="ruta-punto ${retiroActivo ? '' : 'activo'}">
+                                    <span class="ruta-punto-etiqueta">🏁 ENTREGA${retiroActivo ? '' : ' · AHORA'}</span>
+                                    <div class="ruta-punto-texto">${pedido.destino_direccion || 'Sin dirección'}</div>
+                                </div>
                             </div>
-                            <div class="repartidor-acciones">
-                                <button style="background:#9c27b0;" onclick="abrirChat(${pedido.id})">💬 Chat con el cliente</button>
-                                ${pedido.telefono_destinatario ? `<a class="btn-gps" style="background:#16a34a; text-decoration:none; text-align:center; display:block;" href="tel:+595${pedido.telefono_destinatario}">📞 Llamar al destinatario</a>` : ''}
+
+                            <div class="ruta-datos">
+                                <span class="ruta-dato">🛵 ${pedido.tipo}</span>
+                                <span class="ruta-dato">📏 ${Number(pedido.distancia_km || 0).toLocaleString('es-PY')} km</span>
+                                <span class="ruta-dato">🧭 ${distanciaHastaRetiro === null ? 'Activá el GPS' : `${distanciaHastaRetiro} km al retiro`}</span>
+                                <span class="ruta-dato">💳 ${textoFormaPago}</span>
+                                <span class="ruta-dato">🛵 Tarifa: ${tarifaServicio ? `Gs. ${tarifaServicio.toLocaleString('es-PY')}` : 'N/D'}</span>
+                            </div>
+
+                            <div class="ruta-cobro">
+                                <span class="ruta-cobro-etiqueta">💰 Total a cobrar al cliente</span>
+                                <span class="ruta-cobro-monto">Gs. ${montoACobrarEntrega.toLocaleString('es-PY')}</span>
+                            </div>
+                            ${avisoServicio}
+
+                            <div class="ruta-accion">${botonAccion}</div>
+
+                            <div class="ruta-secundarios">
+                                <button type="button" class="ruta-sec ruta-sec-chat" onclick="abrirChat(${pedido.id})">💬 Chat</button>
+                                ${botonLlamar}
                                 ${botonNavegar}
-                                ${botonAccion}
                             </div>
                         </div>
                     `;
@@ -3103,7 +3164,7 @@ async function cargarHistorial() {
                     return;
                 }
 
-                document.getElementById('estadoGpsRepartidor').textContent = 'GPS automático: buscando tu ubicación…';
+                mostrarEstadoGps('GPS: buscando tu ubicación…', false);
                 seguimientoGpsId = navigator.geolocation.watchPosition(async posicion => {
                     try {
                         const respuesta = await fetch(`${API_URL}/repartidores/${repartidor.id}/gps`, {
@@ -3118,15 +3179,13 @@ async function cargarHistorial() {
                         const data = await respuesta.json();
                         if (!respuesta.ok) throw new Error(data.error || 'No se pudo guardar el GPS');
 
-                        document.getElementById('estadoGpsRepartidor').textContent =
-                            `GPS automático activo. Última actualización: ${new Date().toLocaleTimeString('es-PY')}.`;
+                        mostrarEstadoGps(`GPS activo · ${new Date().toLocaleTimeString('es-PY', { hour: '2-digit', minute: '2-digit' })}`, true);
                     } catch (error) {
                         console.error(error);
-                        document.getElementById('estadoGpsRepartidor').textContent =
-                            'GPS automático: no se pudo guardar la ubicación.';
+                        mostrarEstadoGps('GPS: no se pudo guardar la ubicación', false);
                     }
                 }, error => {
-                    document.getElementById('estadoGpsRepartidor').textContent = 'Ubicación GPS: no disponible.';
+                    mostrarEstadoGps('GPS no disponible', false);
                     alert('No se pudo obtener tu ubicación. Permití el acceso a la ubicación en el navegador.');
                     console.error(error);
                     detenerSeguimientoGpsRepartidor();
