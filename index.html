@@ -1366,11 +1366,14 @@ async function crearPedidoConTarifa() {
                 mostrarSeccionPorCodigo('miRuta');
                 iniciarActualizacionMiRuta();
                 suscribirseANotificacionesPush();
+                abrirChatPendienteSiHay();
                 return;
             }
 
             cargarPedidos();
             iniciarNotificaciones();
+            prepararAvisosNoRepartidor();
+            abrirChatPendienteSiHay();
         }
 
         function configurarMenuSegunCuenta() {
@@ -2245,8 +2248,91 @@ async function crearPedidoConTarifa() {
         window.addEventListener('online', refrescarMiRutaYa);
         if ('serviceWorker' in navigator) {
             navigator.serviceWorker.addEventListener('message', (evento) => {
-                if (evento.data && evento.data.tipo === 'push-recibido') refrescarMiRutaYa();
+                const datos = evento.data || {};
+                if (datos.tipo === 'push-recibido') {
+                    if (datos.categoria === 'mensaje') avisarMensajeNuevo(datos.pedidoId);
+                    else refrescarMiRutaYa();
+                } else if (datos.tipo === 'abrir-chat' && datos.pedidoId && usuarioId) {
+                    abrirChat(Number(datos.pedidoId));
+                }
             });
+        }
+
+        // Llegó un mensaje de chat y la app está abierta. Si esa conversación
+        // ya está en pantalla, se actualiza (y suena el tono al cargarla); si
+        // no, suena y aparece un aviso arriba para abrirla con un toque.
+        function avisarMensajeNuevo(pedidoId) {
+            const chatVisible = !document.getElementById('seccionChat').classList.contains('hidden');
+            if (chatVisible && Number(pedidoActivoChat) === Number(pedidoId)) {
+                cargarMensajes();
+                return;
+            }
+            reproducirTonoMensajeChat();
+            if (navigator.vibrate) navigator.vibrate([150, 80, 150]);
+
+            const anterior = document.getElementById('avisoMensajeChat');
+            if (anterior) anterior.remove();
+            const aviso = document.createElement('button');
+            aviso.id = 'avisoMensajeChat';
+            aviso.type = 'button';
+            aviso.textContent = pedidoId ? `💬 Mensaje nuevo en el pedido #${pedidoId} — tocá para abrir` : '💬 Mensaje nuevo';
+            aviso.style.cssText = 'position:fixed; top:12px; left:50%; transform:translateX(-50%); z-index:9000; width:calc(100% - 24px); max-width:440px; padding:14px 16px; font-size:15px; font-weight:700; background:var(--color-primary); color:#fff; border:none; border-radius:var(--radius-md); box-shadow:var(--shadow-lg);';
+            aviso.onclick = () => {
+                aviso.remove();
+                if (pedidoId) abrirChat(Number(pedidoId));
+            };
+            document.body.appendChild(aviso);
+            setTimeout(() => aviso.remove(), 8000);
+        }
+
+        // Abre directo el chat cuando la app se abrió desde la notificación de un
+        // mensaje (la dirección trae "?chat=número de pedido").
+        function abrirChatPendienteSiHay() {
+            try {
+                const parametros = new URLSearchParams(window.location.search);
+                const pedidoId = Number(parametros.get('chat'));
+                if (!pedidoId) return;
+                window.history.replaceState({}, '', window.location.pathname);
+                abrirChat(pedidoId);
+            } catch (error) {
+                console.error('No se pudo abrir el chat desde la notificación.', error);
+            }
+        }
+
+        // Clientes y administradores: también reciben avisos (mensajes del
+        // chat). El navegador exige que el permiso se pida con un toque del
+        // usuario, así que se ofrece con un cartel en vez de pedirlo solo.
+        function prepararAvisosNoRepartidor() {
+            if (!('Notification' in window) || !('serviceWorker' in navigator) || !('PushManager' in window)) return;
+
+            if (Notification.permission === 'granted') {
+                suscribirseANotificacionesPush();
+                return;
+            }
+            if (Notification.permission !== 'default') return;
+
+            let descartado = false;
+            try { descartado = Date.now() - Number(localStorage.getItem('jmmotocourier_avisos_descartado') || 0) < 7 * 86400000; } catch (error) {}
+            if (descartado || document.getElementById('bannerAvisos')) return;
+
+            const cartel = document.createElement('div');
+            cartel.id = 'bannerAvisos';
+            cartel.style.cssText = 'position:fixed; bottom:84px; left:50%; transform:translateX(-50%); z-index:8000; width:calc(100% - 24px); max-width:440px; padding:14px; background:var(--color-bg-elevated); border:1px solid var(--color-border-strong); border-radius:var(--radius-md); box-shadow:var(--shadow-lg); color:var(--text-primary); font-size:14px; line-height:1.4;';
+            cartel.innerHTML = `
+                <div style="margin-bottom:10px;">🔔 Activá los avisos para enterarte al instante de los mensajes del repartidor sobre tu pedido.</div>
+                <div style="display:flex; gap:8px;">
+                    <button type="button" id="botonActivarAvisos" style="flex:1; margin:0;">Activar avisos</button>
+                    <button type="button" id="botonAhoraNoAvisos" style="flex:none; width:auto; margin:0; background:#475569;">Ahora no</button>
+                </div>`;
+            document.body.appendChild(cartel);
+            document.getElementById('botonActivarAvisos').onclick = async () => {
+                cartel.remove();
+                await suscribirseANotificacionesPush();
+            };
+            document.getElementById('botonAhoraNoAvisos').onclick = () => {
+                cartel.remove();
+                try { localStorage.setItem('jmmotocourier_avisos_descartado', String(Date.now())); } catch (error) {}
+            };
         }
 
         function detenerActualizacionMiRuta() {
@@ -2376,30 +2462,35 @@ async function crearPedidoConTarifa() {
             }
         }
 
+        // "Ding-dong" de dos notas, bastante más fuerte y largo que el de antes
+        // (que casi no se escuchaba): se distingue bien de la alarma de pedido.
         function reproducirTonoMensajeChat() {
             try {
                 const ContextoAudio = window.AudioContext || window.webkitAudioContext;
                 if (!ContextoAudio) return;
 
                 const contexto = new ContextoAudio();
-                const oscilador = contexto.createOscillator();
-                const ganancia = contexto.createGain();
-                const inicio = contexto.currentTime;
+                if (contexto.state === 'suspended') contexto.resume().catch(() => {});
 
-                oscilador.type = 'sine';
-                oscilador.frequency.setValueAtTime(660, inicio);
-                oscilador.frequency.setValueAtTime(880, inicio + 0.09);
+                [[784, 0], [1047, 0.2]].forEach(([frecuencia, desfase]) => {
+                    const oscilador = contexto.createOscillator();
+                    const ganancia = contexto.createGain();
+                    const inicio = contexto.currentTime + desfase;
 
-                ganancia.gain.setValueAtTime(0, inicio);
-                ganancia.gain.linearRampToValueAtTime(0.22, inicio + 0.02);
-                ganancia.gain.exponentialRampToValueAtTime(0.001, inicio + 0.22);
+                    oscilador.type = 'triangle';
+                    oscilador.frequency.setValueAtTime(frecuencia, inicio);
 
-                oscilador.connect(ganancia);
-                ganancia.connect(contexto.destination);
-                oscilador.start(inicio);
-                oscilador.stop(inicio + 0.24);
+                    ganancia.gain.setValueAtTime(0, inicio);
+                    ganancia.gain.linearRampToValueAtTime(0.7, inicio + 0.02);
+                    ganancia.gain.exponentialRampToValueAtTime(0.001, inicio + 0.5);
 
-                setTimeout(() => contexto.close(), 500);
+                    oscilador.connect(ganancia);
+                    ganancia.connect(contexto.destination);
+                    oscilador.start(inicio);
+                    oscilador.stop(inicio + 0.52);
+                });
+
+                setTimeout(() => contexto.close(), 1200);
             } catch (error) {
                 console.error('No se pudo reproducir el tono de mensaje de chat.', error);
             }
@@ -3820,7 +3911,9 @@ async function cargarHistorial() {
             cerrarAlertaPedidos();
             detenerSeguimientoGpsRepartidor();
             detenerActualizacionMiRuta();
-            if (esRepartidor) desuscribirseDeNotificacionesPush();
+            desuscribirseDeNotificacionesPush();
+            const cartelAvisos = document.getElementById('bannerAvisos');
+            if (cartelAvisos) cartelAvisos.remove();
             borrarSesion();
             usuarioId = null;
             usuarioTelefono = null;
