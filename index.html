@@ -448,6 +448,18 @@
                             <div class="form-group"><input id="repPlaca" placeholder="Placa de moto"></div>
                             <div class="form-group"><input id="repMarcaMoto" placeholder="Marca de moto"></div>
                             <div class="form-group"><input id="repModeloMoto" placeholder="Modelo de moto"></div>
+                            <div class="form-group"><input id="repColorMoto" list="coloresMoto" placeholder="Color de la moto"></div>
+                        </div>
+                        <datalist id="coloresMoto">
+                            <option value="Negro"><option value="Blanco"><option value="Rojo"><option value="Azul"><option value="Gris">
+                            <option value="Plateado"><option value="Verde"><option value="Amarillo"><option value="Naranja"><option value="Celeste">
+                        </datalist>
+                        <div class="form-group" style="display:flex; align-items:center; gap:12px; margin-top:12px;">
+                            <img id="repFotoPreview" alt="" style="display:none; width:72px; height:72px; border-radius:50%; object-fit:cover; border:2px solid var(--color-primary); flex:none;">
+                            <div style="flex:1;">
+                                <label class="label" for="repFoto" style="display:block; margin-bottom:4px;">Foto del repartidor (rostro visible)</label>
+                                <input id="repFoto" type="file" accept="image/*" onchange="mostrarVistaPreviaFoto(this, 'repFotoPreview')">
+                            </div>
                         </div>
                         <button onclick="registrarRepartidor()">Registrar repartidor</button>
                     </div>
@@ -1462,10 +1474,16 @@ async function crearPedidoConTarifa() {
                         html += `
                             <div class="repartidor-card">
                                 <div class="repartidor-header">
-                                    <div>${r.nombre || 'Repartidor'} #${r.id}</div>
+                                    <div style="display:flex; align-items:center; gap:10px;">
+                                        ${r.tiene_foto
+                                            ? `<img src="${API_URL}/repartidores/${r.id}/foto?v=${r.foto_version || ''}" alt="" style="width:44px; height:44px; border-radius:50%; object-fit:cover; border:2px solid var(--color-primary);">`
+                                            : ''}
+                                        <div>${r.nombre || 'Repartidor'} #${r.id}</div>
+                                    </div>
                                     ${r.gps_activo ? '<div class="online">● Online</div>' : ''}
                                 </div>
                                 <div class="admin-fila"><span>Teléfono</span><strong>+595 ${r.telefono || '—'}</strong></div>
+                                <div class="admin-fila"><span>Moto</span><strong>${[r.marca_moto, r.modelo_moto, r.color_moto].filter(Boolean).join(' · ') || '—'}${r.tiene_foto ? '' : ' · sin foto'}</strong></div>
                                 <div class="info-row">
                                     <div><div class="stat-label">Entregas</div><div class="stat-value">${r.total_entregas || 0}</div></div>
                                     <div><div class="stat-label">Rating</div><div class="stat-value">⭐ ${r.calificacion || 0}</div></div>
@@ -1488,6 +1506,14 @@ async function crearPedidoConTarifa() {
                                         <div class="form-group"><input id="editPlaca-${r.id}" placeholder="Placa de moto" value="${r.placa || ''}"></div>
                                         <div class="form-group"><input id="editMarcaMoto-${r.id}" placeholder="Marca de moto" value="${r.marca_moto || ''}"></div>
                                         <div class="form-group"><input id="editModeloMoto-${r.id}" placeholder="Modelo de moto" value="${r.modelo_moto || ''}"></div>
+                                        <div class="form-group"><input id="editColorMoto-${r.id}" list="coloresMoto" placeholder="Color de la moto" value="${r.color_moto || ''}"></div>
+                                    </div>
+                                    <div class="form-group" style="display:flex; align-items:center; gap:12px; margin:10px 0;">
+                                        <img id="editFotoPreview-${r.id}" alt="" ${r.tiene_foto ? `src="${API_URL}/repartidores/${r.id}/foto?v=${r.foto_version || ''}"` : ''} style="${r.tiene_foto ? '' : 'display:none; '}width:64px; height:64px; border-radius:50%; object-fit:cover; border:2px solid var(--color-primary); flex:none;">
+                                        <div style="flex:1;">
+                                            <label class="label" style="display:block; margin-bottom:4px;">${r.tiene_foto ? 'Cambiar foto (opcional)' : 'Foto del repartidor'}</label>
+                                            <input id="editFoto-${r.id}" type="file" accept="image/*" onchange="mostrarVistaPreviaFoto(this, 'editFotoPreview-${r.id}')">
+                                        </div>
                                     </div>
                                     <div style="display:flex; gap:8px;">
                                         <button onclick="guardarEdicionRepartidor(${r.id})">Guardar cambios</button>
@@ -1521,11 +1547,21 @@ async function crearPedidoConTarifa() {
                 ci: document.getElementById(`editCi-${id}`).value.trim(),
                 placa: document.getElementById(`editPlaca-${id}`).value.trim(),
                 marca_moto: document.getElementById(`editMarcaMoto-${id}`).value.trim(),
-                modelo_moto: document.getElementById(`editModeloMoto-${id}`).value.trim()
+                modelo_moto: document.getElementById(`editModeloMoto-${id}`).value.trim(),
+                color_moto: document.getElementById(`editColorMoto-${id}`).value.trim()
             };
 
             if (!datos.nombre || !datos.telefono || !datos.ci || !datos.placa) {
                 alert('Completa nombre, teléfono, CI y placa');
+                return;
+            }
+
+            try {
+                // Solo se manda si eligió una foto nueva; si no, el servidor conserva la actual.
+                const foto = await leerFotoReducida(document.getElementById(`editFoto-${id}`).files[0]);
+                if (foto) datos.foto = foto;
+            } catch (error) {
+                alert(error.message);
                 return;
             }
 
@@ -1618,6 +1654,47 @@ async function crearPedidoConTarifa() {
             );
         }
 
+        // Lee la foto elegida, la recorta en cuadrado y la reduce a 400 px en
+        // JPEG: así pesa unos 40-60 KB en vez de varios MB de la cámara.
+        function leerFotoReducida(archivo) {
+            return new Promise((resolve, reject) => {
+                if (!archivo) return resolve(null);
+                const lector = new FileReader();
+                lector.onerror = () => reject(new Error('No se pudo leer la foto'));
+                lector.onload = () => {
+                    const imagen = new Image();
+                    imagen.onerror = () => reject(new Error('El archivo elegido no es una imagen válida'));
+                    imagen.onload = () => {
+                        const lado = Math.min(imagen.width, imagen.height);
+                        const lienzo = document.createElement('canvas');
+                        lienzo.width = 400;
+                        lienzo.height = 400;
+                        lienzo.getContext('2d').drawImage(
+                            imagen,
+                            (imagen.width - lado) / 2, (imagen.height - lado) / 2, lado, lado,
+                            0, 0, 400, 400
+                        );
+                        resolve(lienzo.toDataURL('image/jpeg', 0.82));
+                    };
+                    imagen.src = lector.result;
+                };
+                lector.readAsDataURL(archivo);
+            });
+        }
+
+        async function mostrarVistaPreviaFoto(input, idImagen) {
+            const imagen = document.getElementById(idImagen);
+            try {
+                const foto = await leerFotoReducida(input.files[0]);
+                imagen.src = foto || '';
+                imagen.style.display = foto ? 'block' : 'none';
+            } catch (error) {
+                input.value = '';
+                imagen.style.display = 'none';
+                alert(error.message);
+            }
+        }
+
         async function registrarRepartidor() {
             const datos = {
                 nombre: document.getElementById('repNombre').value.trim(),
@@ -1625,11 +1702,27 @@ async function crearPedidoConTarifa() {
                 ci: document.getElementById('repCi').value.trim(),
                 placa: document.getElementById('repPlaca').value.trim(),
                 marca_moto: document.getElementById('repMarcaMoto').value.trim(),
-                modelo_moto: document.getElementById('repModeloMoto').value.trim()
+                modelo_moto: document.getElementById('repModeloMoto').value.trim(),
+                color_moto: document.getElementById('repColorMoto').value.trim()
             };
 
             if (!datos.nombre || !datos.telefono || !datos.ci || !datos.placa) {
                 alert('Completa nombre, teléfono, CI y placa');
+                return;
+            }
+            if (!datos.color_moto) {
+                alert('Indicá el color de la moto');
+                return;
+            }
+
+            try {
+                datos.foto = await leerFotoReducida(document.getElementById('repFoto').files[0]);
+            } catch (error) {
+                alert(error.message);
+                return;
+            }
+            if (!datos.foto) {
+                alert('Sacá o elegí una foto del repartidor (con el rostro visible)');
                 return;
             }
 
@@ -1643,8 +1736,9 @@ async function crearPedidoConTarifa() {
                 if (!res.ok) throw new Error(data.error || 'No se pudo registrar el repartidor');
 
                 alert('Repartidor registrado. Ahora debes aprobarlo.');
-                ['repNombre', 'repTelefono', 'repCi', 'repPlaca', 'repMarcaMoto', 'repModeloMoto']
+                ['repNombre', 'repTelefono', 'repCi', 'repPlaca', 'repMarcaMoto', 'repModeloMoto', 'repColorMoto', 'repFoto']
                     .forEach(id => document.getElementById(id).value = '');
+                document.getElementById('repFotoPreview').style.display = 'none';
                 cargarRepartidores();
             } catch (error) {
                 alert('Error: ' + error.message);
@@ -3491,8 +3585,9 @@ async function cargarHistorial() {
                     const reciente = ubicacionEsReciente(repartidor);
                     const nombreCompleto = repartidor.nombre || `Repartidor #${repartidor.id}`;
                     const nombre = escaparTextoMapa(nombreCompleto);
-                    const moto = [repartidor.marca_moto, repartidor.modelo_moto].filter(Boolean).map(escaparTextoMapa).join(' ');
+                    const moto = [repartidor.color_moto, repartidor.marca_moto, repartidor.modelo_moto].filter(Boolean).map(escaparTextoMapa).join(' ');
                     const placa = repartidor.placa ? escaparTextoMapa(String(repartidor.placa).toUpperCase()) : '';
+                    const fotoUrl = repartidor.tiene_foto ? `${API_URL}/repartidores/${repartidor.id}/foto?v=${repartidor.foto_version || ''}` : '';
 
                     marcadorRepartidor = ponerMarcadorMapa(
                         marcadorRepartidor, mapa, posicionRepartidor,
@@ -3527,7 +3622,9 @@ async function cargarHistorial() {
                                     <div style="font-size:11px; color:var(--text-muted);">Tiempo aproximado${reciente ? '' : ' (según su última posición)'}</div>
                                 </div>
                                 <div style="position:relative; width:64px; height:64px; flex:none;">
-                                    <div style="width:64px; height:64px; border-radius:50%; background:var(--color-primary-soft); border:2px solid var(--color-primary); display:flex; align-items:center; justify-content:center; font-size:26px; font-weight:700;">${inicial}</div>
+                                    ${fotoUrl
+                                        ? `<img src="${fotoUrl}" alt="Foto de ${nombre}" style="width:64px; height:64px; border-radius:50%; object-fit:cover; border:2px solid var(--color-primary); display:block;">`
+                                        : `<div style="width:64px; height:64px; border-radius:50%; background:var(--color-primary-soft); border:2px solid var(--color-primary); display:flex; align-items:center; justify-content:center; font-size:26px; font-weight:700;">${inicial}</div>`}
                                     <div style="position:absolute; right:-4px; bottom:-4px; width:24px; height:24px; border-radius:50%; background:var(--color-success); display:flex; align-items:center; justify-content:center; font-size:13px; border:2px solid var(--color-bg-elevated);">🛵</div>
                                 </div>
                             </div>
@@ -3656,7 +3753,7 @@ async function cargarHistorial() {
                     const ocupado = pedidosR.length > 0;
                     const color = !reciente ? '#6b7280' : (ocupado ? '#f97316' : '#22c55e');
                     const nombre = escaparTextoMapa(r.nombre || `Repartidor #${r.id}`);
-                    const moto = [r.marca_moto, r.modelo_moto].filter(Boolean).map(escaparTextoMapa).join(' ');
+                    const moto = [r.color_moto, r.marca_moto, r.modelo_moto].filter(Boolean).map(escaparTextoMapa).join(' ');
                     const estadoTexto = ocupado
                         ? pedidosR.map(p => `Pedido #${p.id} (${formatearEstado(p.estado)})`).join(', ')
                         : 'Libre';
