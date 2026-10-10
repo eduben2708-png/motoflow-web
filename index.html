@@ -321,6 +321,7 @@
                         </div>
 
 <!-- DESGLOSE DE TARIFA -->
+<div id="avisoDistanciaMaxima" class="hidden" role="alert" style="margin-bottom:12px; padding:12px 14px; border-radius:var(--radius-md); background:var(--color-danger-soft); border:1px solid var(--color-danger); color:var(--text-primary); font-size:14px; line-height:1.5;"></div>
 <div class="desglose-box hidden" id="desgloseTarifa">
     <div class="desglose-row">
         <span>📍 Distancia:</span>
@@ -512,6 +513,16 @@
         // bloqueado por saldo pendiente. Formato internacional sin "+" ni
         // espacios, como lo pide el link de wa.me.
         const TELEFONO_CONTACTO_BLOQUEO = '595973136928';
+
+        // Distancia máxima (por calle) entre retiro y entrega. Tiene que
+        // coincidir con DISTANCIA_MAXIMA_PEDIDO_KM del servidor (routes/pedidos.js),
+        // que es el que realmente rechaza el pedido.
+        const DISTANCIA_MAXIMA_PEDIDO_KM = 20;
+
+        function linkWhatsappFueraDeZona(distanciaKm) {
+            const mensaje = `Hola, quiero consultar por un servicio de ${distanciaKm} km, que queda fuera de la zona de servicio de JMMotocourier.`;
+            return `https://wa.me/${TELEFONO_CONTACTO_BLOQUEO}?text=${encodeURIComponent(mensaje)}`;
+        }
 
         function linkWhatsappBloqueo() {
             const mensaje = 'Hola, tengo la cuenta de repartidor bloqueada por saldo pendiente en JMMotocourier y quiero pagar para seguir recibiendo pedidos.';
@@ -863,6 +874,7 @@ pruebasTarifa.forEach(prueba => {
 async function calcularTarifa() {
     if (!puntoRetiro || !puntoEntrega) {
         document.getElementById('desgloseTarifa').classList.add('hidden');
+        document.getElementById('avisoDistanciaMaxima').classList.add('hidden');
         return;
     }
 
@@ -878,6 +890,18 @@ async function calcularTarifa() {
         alert('Error calculando distancia');
         return;
     }
+
+    // Fuera de la zona de servicio: no se muestra tarifa y no se puede pedir.
+    const aviso = document.getElementById('avisoDistanciaMaxima');
+    if (distanciaKm > DISTANCIA_MAXIMA_PEDIDO_KM) {
+        document.getElementById('desgloseTarifa').classList.add('hidden');
+        aviso.innerHTML = `🚫 <strong>Ese destino queda fuera de nuestra zona de servicio.</strong><br>
+            La distancia entre el retiro y la entrega es de unos ${distanciaKm} km y el máximo que atendemos es de ${DISTANCIA_MAXIMA_PEDIDO_KM} km.
+            Elegí otro punto más cerca, o <a href="${linkWhatsappFueraDeZona(distanciaKm)}" target="_blank" rel="noopener" style="color:#4ade80; font-weight:700;">consultanos por WhatsApp</a>.`;
+        aviso.classList.remove('hidden');
+        return;
+    }
+    aviso.classList.add('hidden');
 
     const desgloseViaje = obtenerDesgloseTarifa(distanciaKm);
     const tarifaMotoflow = desgloseViaje.tarifaMotoCourier;
@@ -944,6 +968,11 @@ async function crearPedidoConTarifa() {
 
     if (distanciaKm === null) {
         alert('Error calculando distancia');
+        return;
+    }
+
+    if (distanciaKm > DISTANCIA_MAXIMA_PEDIDO_KM) {
+        alert(`Ese destino queda fuera de nuestra zona de servicio: la distancia es de unos ${distanciaKm} km y el máximo es de ${DISTANCIA_MAXIMA_PEDIDO_KM} km. Elegí otro punto más cerca.`);
         return;
     }
 
@@ -3211,6 +3240,22 @@ async function cargarHistorial() {
             return `hace ${Math.round(s / 86400)} días`;
         }
 
+        // Tiempo aproximado de llegada. No usa un servicio de rutas: toma la
+        // distancia en línea recta, la alarga un 35% (las calles no van
+        // derechas) y supone unos 22 km/h de promedio en moto por la ciudad.
+        function estimarMinutosLlegada(distanciaKm) {
+            if (!Number.isFinite(distanciaKm)) return null;
+            return Math.round((distanciaKm * 1.35 / 22) * 60);
+        }
+
+        // Deja el teléfono en formato internacional (+595...) para el link de llamada.
+        function telefonoParaLlamar(telefono) {
+            let numero = String(telefono || '').replace(/\D/g, '');
+            if (numero.startsWith('595')) numero = numero.slice(3);
+            if (numero.startsWith('0')) numero = numero.slice(1);
+            return numero.length === 9 ? `+595${numero}` : '';
+        }
+
         let marcadorRetiroSeg = null;
         let marcadorEntregaSeg = null;
         let ajustarVistaMapa = true;
@@ -3332,9 +3377,10 @@ async function cargarHistorial() {
                     detalles.innerHTML = 'El repartidor todavía no activó su GPS.';
                 } else {
                     const reciente = ubicacionEsReciente(repartidor);
-                    const nombre = escaparTextoMapa(repartidor.nombre || `Repartidor #${repartidor.id}`);
+                    const nombreCompleto = repartidor.nombre || `Repartidor #${repartidor.id}`;
+                    const nombre = escaparTextoMapa(nombreCompleto);
                     const moto = [repartidor.marca_moto, repartidor.modelo_moto].filter(Boolean).map(escaparTextoMapa).join(' ');
-                    const placa = repartidor.placa ? escaparTextoMapa(repartidor.placa) : '';
+                    const placa = repartidor.placa ? escaparTextoMapa(String(repartidor.placa).toUpperCase()) : '';
 
                     marcadorRepartidor = ponerMarcadorMapa(
                         marcadorRepartidor, mapa, posicionRepartidor,
@@ -3343,24 +3389,62 @@ async function cargarHistorial() {
                     );
 
                     const yendoAlRetiro = pedidoAsignado.estado !== 'en_camino';
-                    const etapa = {
-                        asignado: 'Tu pedido fue asignado; todavía no salió hacia el retiro.',
-                        en_retiro: 'Va en camino al punto de retiro.',
-                        en_camino: 'Ya retiró el paquete y va hacia el punto de entrega.'
-                    }[pedidoAsignado.estado] || '';
                     const distancia = calcularDistanciaHastaRetiroKm(
                         posicionRepartidor[0], posicionRepartidor[1],
                         coordenadasPedido(pedidoAsignado, yendoAlRetiro ? 'origen' : 'destino')
                     );
+                    const minutos = distancia === null ? null : estimarMinutosLlegada(Number(distancia));
+                    const titulo = yendoAlRetiro ? 'Llega al retiro en' : 'Llega a la entrega en';
+                    const etapa = {
+                        asignado: 'Pedido asignado: todavía no salió hacia el retiro',
+                        en_retiro: 'En camino al punto de retiro',
+                        en_camino: 'Ya retiró el paquete y va hacia la entrega'
+                    }[pedidoAsignado.estado] || '';
+                    const calificacion = Number(repartidor.calificacion || 0);
+                    const telefonoLlamada = telefonoParaLlamar(repartidor.telefono);
+                    const inicial = escaparTextoMapa((nombreCompleto.trim()[0] || '🛵').toUpperCase());
 
                     detalles.innerHTML = `
-                        🛵 <strong>${nombre}</strong>${moto ? ` · ${moto}` : ''}${placa ? ` · Placa ${placa}` : ''}<br>
-                        Pedido #${pedidoAsignado.id} — ${etapa}<br>
-                        ${distancia !== null ? `📏 A unos ${distancia} km (en línea recta) del punto de ${yendoAlRetiro ? 'retiro' : 'entrega'}.<br>` : ''}
-                        ${reciente
-                            ? `🕒 Ubicación actualizada ${textoHaceTiempo(repartidor.segundos_desde_ubicacion)}.`
-                            : `⚠️ Última posición recibida ${textoHaceTiempo(repartidor.segundos_desde_ubicacion)}. Puede estar usando otra app (como Google Maps): la posición se actualiza cuando vuelve a abrir JMMotocourier.`}
-                        <br><button type="button" onclick="reajustarVistaMapa()" style="width:auto; margin:8px 0 0; padding:6px 12px; font-size:12px;">🎯 Ver todo el recorrido</button>
+                        <div style="color:var(--text-primary); line-height:1.35;">
+                            <div style="display:flex; justify-content:space-between; align-items:center; gap:12px;">
+                                <div>
+                                    <div style="font-size:13px; color:var(--text-secondary);">${titulo}</div>
+                                    <div style="font-size:32px; font-weight:800; ${reciente ? '' : 'opacity:.55;'}">
+                                        ${minutos === null ? '—' : (minutos <= 1 ? 'Llegando' : `${minutos} min`)}
+                                    </div>
+                                    <div style="font-size:11px; color:var(--text-muted);">Tiempo aproximado${reciente ? '' : ' (según su última posición)'}</div>
+                                </div>
+                                <div style="position:relative; width:64px; height:64px; flex:none;">
+                                    <div style="width:64px; height:64px; border-radius:50%; background:var(--color-primary-soft); border:2px solid var(--color-primary); display:flex; align-items:center; justify-content:center; font-size:26px; font-weight:700;">${inicial}</div>
+                                    <div style="position:absolute; right:-4px; bottom:-4px; width:24px; height:24px; border-radius:50%; background:var(--color-success); display:flex; align-items:center; justify-content:center; font-size:13px; border:2px solid var(--color-bg-elevated);">🛵</div>
+                                </div>
+                            </div>
+
+                            <div style="margin-top:12px; font-size:17px; font-weight:700;">${placa}${placa && moto ? ' · ' : ''}${moto}</div>
+                            <div style="font-size:15px; color:var(--text-secondary); margin-top:2px;">
+                                ${nombre}
+                                <span style="color:var(--color-success); font-weight:700; margin-left:6px;">${calificacion > 0 ? `★ ${calificacion.toFixed(2)}` : 'Repartidor nuevo'}</span>
+                            </div>
+                            <div style="margin-top:8px; display:inline-block; padding:4px 10px; border-radius:var(--radius-pill); background:var(--color-primary-soft); color:var(--text-primary); font-size:12px;">${etapa}</div>
+
+                            <div style="display:flex; gap:8px; margin-top:12px;">
+                                <button type="button" onclick="abrirChat(${pedidoAsignado.id})" style="flex:1; margin:0; background:var(--color-bg-elevated-2); border:1px solid var(--color-border-strong); color:var(--text-primary); text-align:left;">💬 Escribile al repartidor</button>
+                                ${telefonoLlamada ? `<a href="tel:${telefonoLlamada}" aria-label="Llamar al repartidor" style="flex:none; width:52px; display:flex; align-items:center; justify-content:center; border-radius:var(--radius-md); background:var(--color-success); color:#fff; text-decoration:none; font-size:20px;">📞</a>` : ''}
+                            </div>
+
+                            <div style="margin-top:14px; padding-top:12px; border-top:1px solid var(--color-border); font-size:13px; color:var(--text-secondary); line-height:1.7;">
+                                <div>📦 <strong>Retiro:</strong> ${escaparTextoMapa(pedidoAsignado.origen_direccion || 'Sin dirección')}</div>
+                                <div>🏁 <strong>Entrega:</strong> ${escaparTextoMapa(pedidoAsignado.destino_direccion || 'Sin dirección')}</div>
+                                <div>📏 A unos ${distancia === null ? '—' : distancia} km (en línea recta) del punto de ${yendoAlRetiro ? 'retiro' : 'entrega'} · Pedido #${pedidoAsignado.id}</div>
+                            </div>
+
+                            <div style="margin-top:8px; font-size:12px; color:${reciente ? 'var(--text-muted)' : 'var(--color-warning)'};">
+                                ${reciente
+                                    ? `🕒 Ubicación actualizada ${textoHaceTiempo(repartidor.segundos_desde_ubicacion)}.`
+                                    : `⚠️ Última posición recibida ${textoHaceTiempo(repartidor.segundos_desde_ubicacion)}. Puede estar usando otra app (como Google Maps): se actualiza cuando vuelve a abrir JMMotocourier.`}
+                            </div>
+                            <button type="button" onclick="reajustarVistaMapa()" style="width:auto; margin:10px 0 0; padding:6px 12px; font-size:12px;">🎯 Ver todo el recorrido</button>
+                        </div>
                     `;
                 }
 
