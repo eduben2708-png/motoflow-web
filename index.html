@@ -2065,7 +2065,10 @@ async function crearPedidoConTarifa() {
         }
 
         async function obtenerMiRepartidor() {
-            const respuesta = await fetch(`${API_URL}/repartidores`);
+            // Con tiempo límite: tras dejar el celular bloqueado, la conexión
+            // puede quedar "colgada" sin responder nunca, y la lista no se
+            // actualizaría hasta recargar la app.
+            const respuesta = await fetch(`${API_URL}/repartidores`, { signal: AbortSignal.timeout(15000) });
             if (!respuesta.ok) throw new Error('No se pudieron cargar los repartidores');
 
             const repartidores = await respuesta.json();
@@ -2080,6 +2083,28 @@ async function crearPedidoConTarifa() {
                     cargarPanelMiRuta(true);
                 }
             }, 8000);
+        }
+
+        // Refresca la lista de inmediato (sin esperar los 8 segundos del
+        // intervalo) cuando: el repartidor vuelve a la app tras tenerla en
+        // segundo plano o con la pantalla apagada, el celular recupera la
+        // conexión, o llega un push mientras la app está abierta.
+        function refrescarMiRutaYa() {
+            if (!esRepartidor || !usuarioId) return;
+            const seccion = document.getElementById('seccionMiRuta');
+            if (!seccion || seccion.classList.contains('hidden')) return;
+            cargarPanelMiRuta(true);
+        }
+        document.addEventListener('visibilitychange', () => {
+            if (document.visibilityState === 'visible') refrescarMiRutaYa();
+        });
+        window.addEventListener('pageshow', refrescarMiRutaYa);
+        window.addEventListener('focus', refrescarMiRutaYa);
+        window.addEventListener('online', refrescarMiRutaYa);
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.addEventListener('message', (evento) => {
+                if (evento.data && evento.data.tipo === 'push-recibido') refrescarMiRutaYa();
+            });
         }
 
         function detenerActualizacionMiRuta() {
@@ -2295,7 +2320,7 @@ async function crearPedidoConTarifa() {
                     ? `Tu calificación: ⭐ ${calificacion.toFixed(1)} (${repartidor.total_entregas || 0} entregas)`
                     : 'Todavía no tenés calificaciones de clientes.';
 
-                const respuestaPedidos = await fetch(`${API_URL}/pedidos`);
+                const respuestaPedidos = await fetch(`${API_URL}/pedidos`, { signal: AbortSignal.timeout(15000) });
                 if (!respuestaPedidos.ok) throw new Error('No se pudieron cargar los pedidos');
 
                 const pedidos = await respuestaPedidos.json();
@@ -2306,13 +2331,20 @@ async function crearPedidoConTarifa() {
 
                 const idsActuales = new Set(misPedidos.map(pedido => pedido.id));
                 if (verificarNuevos && !primeraCargaMiRuta) {
-                    misPedidos
-                        // El tono es solo para avisar de una asignación nueva: si el
-                        // pedido ya está "en_retiro" o "en_camino" es porque el
-                        // repartidor ya lo aceptó y está trabajando en él, así que no
-                        // debe volver a sonar.
-                        .filter(pedido => !pedidosRepartidorConocidos.has(pedido.id) && pedido.estado === 'asignado')
-                        .forEach(avisarPedidoNuevo);
+                    // El tono es solo para avisar de una asignación nueva: si el
+                    // pedido ya está "en_retiro" o "en_camino" es porque el
+                    // repartidor ya lo aceptó y está trabajando en él, así que no
+                    // debe volver a sonar.
+                    const pedidosNuevos = misPedidos
+                        .filter(pedido => !pedidosRepartidorConocidos.has(pedido.id) && pedido.estado === 'asignado');
+                    // El aviso usa alert(), que congela la pantalla hasta que se
+                    // cierra. Si se disparara acá, la lista de pedidos no se
+                    // dibujaría hasta tocar "Aceptar" (y se vería el pedido
+                    // recién al actualizar). Por eso se difiere un instante: así
+                    // primero se pinta la lista y recién después suena y avisa.
+                    if (pedidosNuevos.length > 0) {
+                        setTimeout(() => pedidosNuevos.forEach(avisarPedidoNuevo), 400);
+                    }
                 }
                 pedidosRepartidorConocidos = idsActuales;
                 primeraCargaMiRuta = false;
@@ -2371,11 +2403,13 @@ async function crearPedidoConTarifa() {
                             `
                                 : `<button class="btn-entregar btn-accion-principal" onclick="actualizarEstadoMiPedido(${pedido.id}, 'entregado')">Marcar como entregado</button>`);
 
-                    // No hay un botón de "Navegar a..." aparte: el botón de acción de
-                    // cada etapa (Iniciar viaje al retiro / Paquete retirado) ya abre
-                    // solo la navegación hacia el punto siguiente al tocarlo, así que
-                    // mantener otro botón para lo mismo era redundante en las tres
-                    // etapas.
+                    // El botón de acción de cada etapa abre la navegación una sola
+                    // vez, al tocarlo. Si el repartidor sale de Google Maps o cierra
+                    // la navegación sin querer, tiene que poder volver a abrirla:
+                    // por eso este botón queda siempre visible y apunta al punto
+                    // que corresponde a la etapa actual (retiro o entrega).
+                    const irAlRetiro = pedido.estado !== 'en_camino';
+                    const botonNavegar = `<button class="btn-gps" style="background:#2563eb;" onclick="navegarPedido(${pedido.id}, '${irAlRetiro ? 'origen' : 'destino'}')">🧭 ${irAlRetiro ? 'Navegar al punto de retiro' : 'Navegar al punto de entrega'}</button>`;
 
                     // Cuando el vendedor paga el servicio al retirar, "tipo_pago" no
                     // aplica (ese campo es lo que abona el destinatario al entregar):
@@ -2411,6 +2445,7 @@ async function crearPedidoConTarifa() {
                             <div class="repartidor-acciones">
                                 <button style="background:#9c27b0;" onclick="abrirChat(${pedido.id})">💬 Chat con el cliente</button>
                                 ${pedido.telefono_destinatario ? `<a class="btn-gps" style="background:#16a34a; text-decoration:none; text-align:center; display:block;" href="tel:+595${pedido.telefono_destinatario}">📞 Llamar al destinatario</a>` : ''}
+                                ${botonNavegar}
                                 ${botonAccion}
                             </div>
                         </div>
@@ -2597,6 +2632,17 @@ async function cargarHistorial() {
             const distancia = 6371 * (2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)));
 
             return distancia.toFixed(1);
+        }
+
+        // Vuelve a abrir Google Maps hacia el retiro ('origen') o la entrega
+        // ('destino') de un pedido de la lista del repartidor.
+        function navegarPedido(id, tipo) {
+            const pedido = pedidosMiRutaActuales.find(item => Number(item.id) === Number(id));
+            if (!pedido) {
+                alert('No se encontró el pedido. Actualizá la lista e intentá de nuevo.');
+                return;
+            }
+            abrirNavegacion(coordenadasPedido(pedido, tipo));
         }
 
         function abrirNavegacion(coordenadas) {
