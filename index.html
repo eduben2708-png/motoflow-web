@@ -6,7 +6,7 @@
     <title>JMMotocourier</title>
 
     <!-- Ícono para el buscador/pestaña -->
-    <link rel="icon" type="image/png" href="icons/icon-192.png">
+    <link rel="icon" type="image/png" href="icons/icon-192.png?v=3">
 
     <!-- manifest.json: lo que le dice al celular cómo se ve la app cuando
          la agregás a la pantalla de inicio (nombre, ícono, que abra a
@@ -15,7 +15,7 @@
     <meta name="theme-color" content="#f97316">
 
     <!-- Íconos y comportamiento cuando se agrega al home del celular -->
-    <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+    <link rel="apple-touch-icon" href="icons/apple-touch-icon.png?v=3">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="JMMoto">
@@ -57,6 +57,8 @@
         .ruta-sec-chat { background:#9c27b0; }
         .ruta-sec-llamar { background:#15803d; }
         .ruta-sec-navegar { background:#2563eb; }
+            /* Logo nuevo (PNG con fondo transparente): sin recorte circular, para que no se corte el texto */
+        .logo-img { width:200px; height:200px; border-radius:0; object-fit:contain; box-shadow:none; filter:drop-shadow(0 8px 18px rgba(249,115,22,0.30)); }
     </style>
 </head>
 <body>
@@ -64,7 +66,7 @@
     <div class="container">
         <!-- LOGIN SCREEN -->
         <div id="loginScreen" class="login-screen">
-            <img src="Logo.jpeg" alt="JM Motocourier" class="logo-img">
+            <img src="icons/logo.png?v=3" alt="JM Motocourier" class="logo-img">
             <div class="horario-servicio">🕐 Servicio activo de 07:30 a 17:30 hs</div>
             <div class="card">
                 <div id="paso1">
