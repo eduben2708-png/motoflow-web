@@ -1077,7 +1077,7 @@ async function crearPedidoConTarifa() {
         if (data.id) {
             const mensajeAsignacion = data.repartidor_id
                 ? ` Repartidor #${data.repartidor_id} asignado automáticamente.`
-                : ' Quedó pendiente porque no hay repartidores con GPS activo.';
+                : ' Todavía no hay un repartidor disponible cerca. Tu pedido quedó en espera y se asigna solo apenas haya uno; te avisamos acá.';
             // Se usa el total que calculó el servidor (data.monto_total) en vez
             // del estimado local: es la fuente de verdad y evita que quede
             // desactualizado si el servidor suma algún recargo (como el del
