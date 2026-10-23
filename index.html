@@ -1462,6 +1462,8 @@ async function crearPedidoConTarifa() {
                                     <button onclick="abrirChat(${p.id})" style="flex:1; padding: 8px; background: #9c27b0; border: none; border-radius: 6px; color: #fff; cursor: pointer;">💬 Chat</button>
                                     <button onclick="abrirMapaPedido(${p.id})" style="flex:1; padding: 8px; background: #2563eb; border: none; border-radius: 6px; color: #fff; cursor: pointer;">📍 Ver ubicación</button>
                                 </div>` : ''}
+                                ${['pendiente', 'asignado'].includes(p.estado) ? `
+                                <button onclick="cancelarMiPedido(${p.id})" style="width:100%; margin-top:8px; padding:8px; background:transparent; border:1px solid #ef4444; border-radius:6px; color:#ef4444; cursor:pointer;">✖ Cancelar pedido</button>` : ''}
                                 ${p.estado === 'entregado' && p.repartidor_id ? (
                                     p.calificacion_repartidor
                                         ? `<div style="font-size:13px; color:#fbbf24; margin-top:8px;">Tu calificación al repartidor: ${'⭐'.repeat(p.calificacion_repartidor)}</div>`
@@ -1477,6 +1479,22 @@ async function crearPedidoConTarifa() {
                 document.getElementById('listaPedidos').innerHTML = html;
             } catch (error) {
                 console.error(error);
+            }
+        }
+
+        async function cancelarMiPedido(id) {
+            if (!confirm(`¿Cancelar el pedido #${id}? Esto no se puede deshacer.`)) return;
+            try {
+                const respuesta = await fetch(`${API_URL}/pedidos/${id}/cancelar`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ cliente_id: usuarioId })
+                });
+                const data = await respuesta.json().catch(() => ({}));
+                if (!respuesta.ok) throw new Error(data.error || 'No se pudo cancelar el pedido');
+                cargarPedidos();
+            } catch (error) {
+                alert(error.message);
             }
         }
 
