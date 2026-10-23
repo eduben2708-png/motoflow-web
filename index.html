@@ -466,7 +466,7 @@
                             <span id="miCalificacionRepartidor"></span>
                             <span id="estadoGpsRepartidor" class="off">GPS sin actualizar</span>
                         </div>
-                        <button class="ruta-gps-btn" onclick="iniciarSeguimientoGpsRepartidor()">📍 Activar GPS</button>
+                        <button id="btnConexionGps" class="ruta-gps-btn" onclick="alternarConexionGps()">📍 Activar GPS</button>
                     </div>
                     <div id="listaMiRuta"></div>
                 </div>
@@ -612,6 +612,9 @@
         let esRepartidor = false;
         let usuarioRol = 'cliente';
         let seguimientoGpsId = null;
+        let latidoGpsId = null;
+        let repartidorGpsId = null;
+        let ultimaPosicionGps = null;
         let intervaloMiRuta = null;
         let pedidosRepartidorConocidos = new Set();
         let primeraCargaMiRuta = true;
@@ -2223,7 +2226,7 @@ async function crearPedidoConTarifa() {
                 document.getElementById('seccionMiRuta').classList.remove('hidden');
                 event.target.classList.add('active');
                 cargarPanelMiRuta();
-                iniciarSeguimientoGpsRepartidor();
+                iniciarSeguimientoGpsRepartidor(true);
                 iniciarActualizacionMiRuta();
             } else if (seccion === 'historial') {
                 document.getElementById('seccionHistorial').classList.remove('hidden');
@@ -2250,7 +2253,7 @@ async function crearPedidoConTarifa() {
                 document.getElementById('seccionMiRuta').classList.remove('hidden');
                 boton.classList.add('active');
                 cargarPanelMiRuta();
-                iniciarSeguimientoGpsRepartidor();
+                iniciarSeguimientoGpsRepartidor(true);
                 iniciarActualizacionMiRuta();
             }
         }
@@ -2782,7 +2785,8 @@ async function crearPedidoConTarifa() {
                     return;
                 }
 
-                mostrarEstadoGps(repartidor.gps_activo ? 'GPS activo' : 'GPS apagado: tocá "Activar GPS"', Boolean(repartidor.gps_activo));
+                mostrarEstadoGps(repartidor.gps_activo ? 'GPS activo' : 'Desconectado · tocá "Activar GPS" para recibir pedidos', Boolean(repartidor.gps_activo));
+                actualizarBotonConexionGps();
 
                 const calificacion = Number(repartidor.calificacion || 0);
                 document.getElementById('miCalificacionRepartidor').textContent = calificacion > 0
@@ -3147,7 +3151,7 @@ async function cargarHistorial() {
            if (!nuevaVentana) window.open(url, '_blank', 'noopener');
         }
 
-        async function iniciarSeguimientoGpsRepartidor() {
+        async function iniciarSeguimientoGpsRepartidor(automatico = false) {
             try {
                 if (seguimientoGpsId !== null) return;
 
@@ -3169,9 +3173,26 @@ async function cargarHistorial() {
                     return;
                 }
 
+                // Si el repartidor tocó "Desconectarme", no lo reconectamos solos al
+                // volver a abrir la app: tiene que tocar "Activar GPS".
+                const claveDesconexion = `jm_desconectado_${repartidor.id}`;
+                if (automatico) {
+                    let desconectado = false;
+                    try { desconectado = localStorage.getItem(claveDesconexion) === '1'; } catch (e) {}
+                    if (desconectado) {
+                        mostrarEstadoGps('Desconectado · no recibís pedidos nuevos', false);
+                        actualizarBotonConexionGps();
+                        return;
+                    }
+                } else {
+                    try { localStorage.removeItem(claveDesconexion); } catch (e) {}
+                }
+
+                repartidorGpsId = repartidor.id;
                 mostrarEstadoGps('GPS: buscando tu ubicación…', false);
-                seguimientoGpsId = navigator.geolocation.watchPosition(async posicion => {
+                const enviarPosicionGps = async posicion => {
                     try {
+                        ultimaPosicionGps = posicion;
                         const respuesta = await fetch(`${API_URL}/repartidores/${repartidor.id}/gps`, {
                             method: 'PUT',
                             headers: { 'Content-Type': 'application/json' },
@@ -3189,12 +3210,21 @@ async function cargarHistorial() {
                         console.error(error);
                         mostrarEstadoGps('GPS: no se pudo guardar la ubicación', false);
                     }
-                }, error => {
+                };
+                seguimientoGpsId = navigator.geolocation.watchPosition(enviarPosicionGps, error => {
                     mostrarEstadoGps('GPS no disponible', false);
                     alert('No se pudo obtener tu ubicación. Permití el acceso a la ubicación en el navegador.');
                     console.error(error);
                     detenerSeguimientoGpsRepartidor();
                 }, { enableHighAccuracy: true, timeout: 15000, maximumAge: 15000 });
+
+                // watchPosition solo avisa cuando te movés: si estás quieto esperando
+                // un pedido, reenviamos la última posición cada 60 s para que el
+                // sistema sepa que seguís conectado.
+                latidoGpsId = setInterval(() => {
+                    if (ultimaPosicionGps) enviarPosicionGps(ultimaPosicionGps);
+                }, 60000);
+                actualizarBotonConexionGps();
             } catch (error) {
                 alert(error.message);
             }
@@ -3205,6 +3235,46 @@ async function cargarHistorial() {
                 navigator.geolocation.clearWatch(seguimientoGpsId);
             }
             seguimientoGpsId = null;
+            if (latidoGpsId !== null) clearInterval(latidoGpsId);
+            latidoGpsId = null;
+            ultimaPosicionGps = null;
+            actualizarBotonConexionGps();
+        }
+
+        // Un solo botón: "Desconectarme" mientras está conectado, "Activar GPS" si no.
+        function actualizarBotonConexionGps() {
+            const boton = document.getElementById('btnConexionGps');
+            if (!boton) return;
+            boton.textContent = seguimientoGpsId !== null ? '⏻ Desconectarme' : '📍 Activar GPS';
+        }
+
+        function alternarConexionGps() {
+            if (seguimientoGpsId !== null) desconectarRepartidor();
+            else iniciarSeguimientoGpsRepartidor(false);
+        }
+
+        async function avisarGpsApagado(idRepartidor) {
+            try {
+                await fetch(`${API_URL}/repartidores/${idRepartidor}/gps`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ activo: false }),
+                    keepalive: true
+                });
+            } catch (error) {
+                console.error(error);
+            }
+        }
+
+        async function desconectarRepartidor() {
+            if (!confirm('¿Desconectarte? Dejás de recibir pedidos nuevos hasta que toques "Activar GPS". Los pedidos que ya tenés siguen siendo tuyos.')) return;
+            const id = repartidorGpsId;
+            detenerSeguimientoGpsRepartidor();
+            if (id) {
+                try { localStorage.setItem(`jm_desconectado_${id}`, '1'); } catch (e) {}
+                await avisarGpsApagado(id);
+            }
+            mostrarEstadoGps('Desconectado · no recibís pedidos nuevos', false);
         }
 
         function actualizarInstruccionMapa() {
@@ -4054,6 +4124,7 @@ async function cargarHistorial() {
                 intervaloNotificacionesCliente = null;
             }
             cerrarAlertaPedidos();
+            if (seguimientoGpsId !== null && repartidorGpsId) avisarGpsApagado(repartidorGpsId);
             detenerSeguimientoGpsRepartidor();
             detenerActualizacionMiRuta();
             desuscribirseDeNotificacionesPush();
