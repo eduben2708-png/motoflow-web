@@ -480,6 +480,10 @@
                         </div>
                         <button id="btnConexionGps" class="ruta-gps-btn" onclick="alternarConexionGps()">📍 Activar GPS</button>
                     </div>
+                    <div id="avisoGpsApagado" class="hidden" style="margin-bottom:10px; padding:12px; background:rgba(239,68,68,.15); border:1px solid #ef4444; border-radius:var(--radius-md); color:#fca5a5; font-size:14px; font-weight:700;">
+                        ⚠️ Estás desconectado: no recibís pedidos nuevos. Tocá "Activar GPS".
+                    </div>
+                    <div style="font-size:12px; color:var(--text-muted); margin:0 0 10px;">📱 Dejá la pantalla encendida y el celular cargando para no perder pedidos.</div>
                     <div id="listaMiRuta"></div>
                 </div>
 
@@ -627,6 +631,42 @@
         let latidoGpsId = null;
         let repartidorGpsId = null;
         let ultimaPosicionGps = null;
+        let enviarPosicionGpsActual = null;
+        let wakeLockGps = null;
+
+        // Mantiene la pantalla encendida mientras el GPS está activo: si el celular se
+        // bloquea, el navegador deja de enviar la ubicación. (No todos los celulares lo permiten.)
+        async function mantenerPantallaEncendida() {
+            try {
+                if ('wakeLock' in navigator && !wakeLockGps) {
+                    wakeLockGps = await navigator.wakeLock.request('screen');
+                    wakeLockGps.addEventListener('release', () => { wakeLockGps = null; });
+                }
+            } catch (error) {
+                console.warn('No se pudo mantener la pantalla encendida:', error.message);
+            }
+        }
+
+        function soltarPantalla() {
+            if (wakeLockGps) {
+                wakeLockGps.release().catch(() => {});
+                wakeLockGps = null;
+            }
+        }
+
+        // Al volver a abrir la app (el navegador suelta el wake lock al ocultarla): se
+        // vuelve a pedir y se manda la ubicación al instante, sin esperar el próximo aviso.
+        document.addEventListener('visibilitychange', () => {
+            if (document.visibilityState !== 'visible' || seguimientoGpsId === null) return;
+            mantenerPantallaEncendida();
+            if (navigator.geolocation && enviarPosicionGpsActual) {
+                navigator.geolocation.getCurrentPosition(
+                    posicion => enviarPosicionGpsActual && enviarPosicionGpsActual(posicion),
+                    () => {},
+                    { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+                );
+            }
+        });
         let intervaloMiRuta = null;
         let pedidosRepartidorConocidos = new Set();
         let primeraCargaMiRuta = true;
@@ -1106,7 +1146,7 @@ async function crearPedidoConTarifaInterno() {
 
         if (data.id) {
             const mensajeAsignacion = data.repartidor_id
-                ? ` Repartidor #${data.repartidor_id} asignado automáticamente.`
+                ? ' Estamos avisando a un repartidor; apenas lo acepte te avisamos.'
                 : ' Todavía no hay un repartidor disponible cerca. Tu pedido quedó en espera y se asigna solo apenas haya uno; te avisamos acá.';
             // Se usa el total que calculó el servidor (data.monto_total) en vez
             // del estimado local: es la fuente de verdad y evita que quede
@@ -1476,7 +1516,7 @@ async function crearPedidoConTarifaInterno() {
                             <div class="pedido-card">
                                 <div class="pedido-header">
                                     <div class="pedido-id">Pedido #${p.id}</div>
-                                    <div class="estado ${p.estado}">${p.estado}</div>
+                                    <div class="estado ${p.estado}">${p.estado === 'asignado' && !p.aceptado_en ? 'esperando repartidor' : p.estado}</div>
                                 </div>
                                 <div style="font-size: 12px; color: #8899bb; margin-bottom: 8px;">
                                     📍 RETIRO<br>
@@ -2014,6 +2054,7 @@ async function crearPedidoConTarifaInterno() {
                                     <span class="estado ${pedido.estado}">${formatearEstado(pedido.estado)}</span>
                                 </div>
                                 <div class="admin-fila"><span>Cliente</span><strong>${pedido.cliente_nombre || `Cliente #${pedido.cliente_id}`}</strong></div>
+                                ${pedido.estado === 'asignado' && !pedido.aceptado_en ? `<div class="admin-fila"><span>Aceptación</span><strong style="color:#fbbf24;">⏳ Esperando que el repartidor acepte</strong></div>` : ''}
                                 <div class="admin-fila"><span>Servicio</span><strong>${pedido.tipo}</strong></div>
                                 <div class="admin-fila"><span>Distancia</span><strong>${pedido.distancia_km || 0} km</strong></div>
                                 <div class="admin-fila"><span>Total</span><strong>Gs. ${Number(pedido.monto || 0).toLocaleString('es-PY')}</strong></div>
@@ -2762,6 +2803,22 @@ async function crearPedidoConTarifaInterno() {
         // vio, para no volver a sonar por el mismo pedido.
         const CLAVE_PEDIDOS_AVISADOS = 'jmmotocourier_pedidos_avisados';
         let idsEnAlerta = new Set();
+        // Tiempo que tiene el repartidor para aceptar un pedido (igual que en el servidor).
+        const SEGUNDOS_PARA_ACEPTAR = 120;
+        const limitesAceptacion = {};
+        let intervaloCuentaAtras = null;
+
+        function actualizarCuentasAtras() {
+            document.querySelectorAll('[data-cuenta-pedido]').forEach(elemento => {
+                const limite = limitesAceptacion[elemento.dataset.cuentaPedido];
+                if (!limite) return;
+                const resto = Math.max(0, Math.ceil((limite - Date.now()) / 1000));
+                elemento.textContent = resto > 0
+                    ? `${Math.floor(resto / 60)}:${String(resto % 60).padStart(2, '0')}`
+                    : 'Venciendo…';
+                elemento.style.color = resto <= 30 ? '#ef4444' : '';
+            });
+        }
         let intervaloAlarmaPedido = null;
 
         function leerPedidosAvisados() {
@@ -2808,6 +2865,7 @@ async function crearPedidoConTarifaInterno() {
 
         function cerrarAlertaPedidos() {
             idsEnAlerta = new Set();
+            if (intervaloCuentaAtras !== null) { clearInterval(intervaloCuentaAtras); intervaloCuentaAtras = null; }
             detenerAlarmaPedido();
             const overlay = document.getElementById('alertaPedidoNuevo');
             if (overlay) overlay.remove();
@@ -2815,7 +2873,12 @@ async function crearPedidoConTarifaInterno() {
 
         function mostrarAlertaPedidos(pedidos, repartidor) {
             const hayNuevos = pedidos.some(p => !idsEnAlerta.has(Number(p.id)));
+            const mismaCantidad = pedidos.length === idsEnAlerta.size;
             idsEnAlerta = new Set(pedidos.map(p => Number(p.id)));
+
+            // Si la alerta ya está en pantalla con los mismos pedidos no se vuelve a
+            // dibujar: así un toque en "Aceptar" nunca cae justo en un redibujado.
+            if (document.getElementById('alertaPedidoNuevo') && !hayNuevos && mismaCantidad) return;
 
             let overlay = document.getElementById('alertaPedidoNuevo');
             if (!overlay) {
@@ -2840,6 +2903,11 @@ async function crearPedidoConTarifaInterno() {
                         ${distancia !== null ? `<div>🧭 <strong>Estás a:</strong> ${distancia} km del retiro</div>` : ''}
                         ${tarifa ? `<div>🛵 <strong>Tarifa del servicio:</strong> Gs. ${tarifa.toLocaleString('es-PY')}</div>` : ''}
                         ${p.pago_servicio_retiro ? `<div style="color:#ef4444; font-weight:700;">⚠️ Cobrale la tarifa de servicio AL VENDEDOR antes de irte.</div>` : ''}
+                        <div style="margin-top:8px; font-weight:700;">⏳ Tiempo para aceptar: <span data-cuenta-pedido="${p.id}">2:00</span></div>
+                        <div style="display:flex; gap:8px; margin-top:10px;">
+                            <button type="button" onclick="aceptarPedidoRepartidor(${p.id})" style="flex:2; padding:14px; font-size:17px; font-weight:800; background:var(--color-success); border:none; border-radius:var(--radius-md); color:#fff;">✅ Aceptar</button>
+                            <button type="button" onclick="rechazarPedidoRepartidor(${p.id})" style="flex:1; padding:14px; font-size:15px; background:#475569; border:none; border-radius:var(--radius-md); color:#fff;">Rechazar</button>
+                        </div>
                     </div>`;
             }).join('');
 
@@ -2849,8 +2917,9 @@ async function crearPedidoConTarifaInterno() {
                     ${pedidos.length > 1 ? `¡Tenés ${pedidos.length} pedidos nuevos!` : '¡Tenés un pedido nuevo!'}
                 </div>
                 ${tarjetas}
-                <button type="button" onclick="confirmarPedidosAvisados()" style="width:100%; max-width:440px; margin:8px 0 24px; padding:16px; font-size:18px; font-weight:800; background:var(--color-success); border:none; border-radius:var(--radius-md); color:#fff;">Ver pedido</button>
             `;
+            actualizarCuentasAtras();
+            if (intervaloCuentaAtras === null) intervaloCuentaAtras = setInterval(actualizarCuentasAtras, 1000);
 
             // Si el navegador bloqueó el sonido porque todavía no hubo ningún toque
             // en la pantalla, el primer toque lo activa.
@@ -2863,6 +2932,46 @@ async function crearPedidoConTarifaInterno() {
                 detenerAlarmaPedido();
                 iniciarAlarmaPedido();
             }
+        }
+
+        async function aceptarPedidoRepartidor(id) {
+            try {
+                const repartidor = await obtenerMiRepartidor();
+                if (!repartidor) throw new Error('No se encontró tu cuenta de repartidor.');
+                const respuesta = await fetch(`${API_URL}/pedidos/${id}/aceptar`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ repartidor_id: repartidor.id })
+                });
+                const data = await respuesta.json().catch(() => ({}));
+                if (!respuesta.ok) throw new Error(data.error || 'No se pudo aceptar el pedido');
+                const avisados = leerPedidosAvisados();
+                avisados.add(Number(id));
+                guardarPedidosAvisados(avisados);
+            } catch (error) {
+                alert(error.message);
+            }
+            cerrarAlertaPedidos();
+            cargarPanelMiRuta();
+        }
+
+        async function rechazarPedidoRepartidor(id) {
+            if (!confirm(`¿Rechazar el pedido #${id}? Se le ofrece a otro repartidor.`)) return;
+            try {
+                const repartidor = await obtenerMiRepartidor();
+                if (!repartidor) throw new Error('No se encontró tu cuenta de repartidor.');
+                const respuesta = await fetch(`${API_URL}/pedidos/${id}/rechazar`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ repartidor_id: repartidor.id })
+                });
+                const data = await respuesta.json().catch(() => ({}));
+                if (!respuesta.ok) throw new Error(data.error || 'No se pudo rechazar el pedido');
+            } catch (error) {
+                alert(error.message);
+            }
+            cerrarAlertaPedidos();
+            cargarPanelMiRuta();
         }
 
         function confirmarPedidosAvisados() {
@@ -2890,6 +2999,10 @@ async function crearPedidoConTarifaInterno() {
             if (!elemento) return;
             elemento.textContent = texto;
             elemento.className = activo ? 'ok' : 'off';
+            // Cartel rojo bien visible cuando el repartidor no está recibiendo pedidos
+            // (no se muestra mientras solo está buscando su ubicación).
+            const aviso = document.getElementById('avisoGpsApagado');
+            if (aviso) aviso.classList.toggle('hidden', Boolean(activo) || /buscando/i.test(texto));
         }
 
         async function cargarPanelMiRuta(verificarNuevos = false) {
@@ -2948,8 +3061,13 @@ async function crearPedidoConTarifaInterno() {
                 // alerta salta apenas la abre). Los pedidos que ya aceptó
                 // ("en_retiro" / "en_camino") nunca suenan de nuevo.
                 const yaAvisados = leerPedidosAvisados();
+                // Ahora la alerta salta mientras el repartidor no haya aceptado el
+                // pedido (tiene un tiempo limitado: si no, pasa al siguiente).
                 const pendientesDeAviso = misPedidos
-                    .filter(pedido => pedido.estado === 'asignado' && !yaAvisados.has(Number(pedido.id)));
+                    .filter(pedido => pedido.estado === 'asignado' && !pedido.aceptado_en);
+                pendientesDeAviso.forEach(pedido => {
+                    limitesAceptacion[pedido.id] = Date.now() + Math.max(0, SEGUNDOS_PARA_ACEPTAR - Number(pedido.segundos_desde_asignacion || 0)) * 1000;
+                });
                 // La alerta usa pantalla completa: se difiere un instante para que
                 // la lista de abajo se dibuje primero.
                 if (pendientesDeAviso.length > 0) {
@@ -2992,7 +3110,13 @@ async function crearPedidoConTarifaInterno() {
                     const requierePagoEntrega = montoACobrarEntrega > 0;
 
                     const botonAccion = pedido.estado === 'asignado'
-                        ? `<button class="btn-accion-principal" onclick="actualizarEstadoMiPedido(${pedido.id}, 'en_retiro', null, '${coordenadasPedido(pedido, 'origen')}')">Iniciar viaje al retiro</button>`
+                        ? (pedido.aceptado_en
+                            ? `<button class="btn-accion-principal" onclick="actualizarEstadoMiPedido(${pedido.id}, 'en_retiro', null, '${coordenadasPedido(pedido, 'origen')}')">Iniciar viaje al retiro</button>`
+                            : `<div style="font-size:13px; color:#fbbf24; margin-bottom:6px;">⏳ Pendiente de tu aceptación</div>
+                               <div style="display:flex; gap:8px;">
+                                   <button class="btn-accion-principal" style="flex:2;" onclick="aceptarPedidoRepartidor(${pedido.id})">✅ Aceptar</button>
+                                   <button style="flex:1; background:#475569;" onclick="rechazarPedidoRepartidor(${pedido.id})">Rechazar</button>
+                               </div>`)
                         : pedido.estado === 'en_retiro'
                             ? (requierePagoServicio
                                 ? `
@@ -3363,6 +3487,7 @@ async function cargarHistorial() {
                         mostrarEstadoGps('GPS: no se pudo guardar la ubicación', false);
                     }
                 };
+                enviarPosicionGpsActual = enviarPosicionGps;
                 seguimientoGpsId = navigator.geolocation.watchPosition(enviarPosicionGps, error => {
                     mostrarEstadoGps('GPS no disponible', false);
                     alert('No se pudo obtener tu ubicación. Permití el acceso a la ubicación en el navegador.');
@@ -3376,6 +3501,7 @@ async function cargarHistorial() {
                 latidoGpsId = setInterval(() => {
                     if (ultimaPosicionGps) enviarPosicionGps(ultimaPosicionGps);
                 }, 60000);
+                mantenerPantallaEncendida();
                 actualizarBotonConexionGps();
             } catch (error) {
                 alert(error.message);
@@ -3390,6 +3516,8 @@ async function cargarHistorial() {
             if (latidoGpsId !== null) clearInterval(latidoGpsId);
             latidoGpsId = null;
             ultimaPosicionGps = null;
+            enviarPosicionGpsActual = null;
+            soltarPantalla();
             actualizarBotonConexionGps();
         }
 
@@ -4324,7 +4452,7 @@ async function cargarHistorial() {
                         const misPedidos = pedidos.filter(p => p.cliente_id === usuarioId);
 
                         misPedidos.forEach(p => {
-                            if (p.estado === 'asignado' && !notificacionesVistas.includes(p.id)) {
+                            if (p.estado === 'asignado' && p.aceptado_en && !notificacionesVistas.includes(p.id)) {
                                 notificacionesVistas.push(p.id);
                                 // Aviso no bloqueante con sonido (antes era un alert() que congelaba la pantalla).
                                 reproducirTonoMensajeChat();
