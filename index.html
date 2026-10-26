@@ -401,11 +401,6 @@
             <span id="desgloseComision" style="color: #fbbf24;">0</span>
         </div>
 
-        <div class="desglose-row hidden" id="filaRecargoCentro">
-            <span>Recargo zona céntrica:</span>
-            <span id="desgloseRecargoCentro" style="color: #fbbf24;">0</span>
-        </div>
-
         <div class="desglose-total">
             TOTAL A PAGAR: <span id="desgloseTotal">0</span> Gs.
         </div>
@@ -870,6 +865,15 @@ function distanciaHaversineKm(lat1, lng1, lat2, lng2) {
     return radioTierraKm * (2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)));
 }
 
+// El recargo se cobra una sola vez si el retiro O la entrega están en el centro.
+function recargoCentroDelPedido() {
+    if (!puntoRetiro || !puntoEntrega) return 0;
+    return Math.max(
+        calcularRecargoCentro(puntoRetiro.lat, puntoRetiro.lng),
+        calcularRecargoCentro(puntoEntrega.lat, puntoEntrega.lng)
+    );
+}
+
 function calcularRecargoCentro(lat, lng) {
     if (typeof lat !== 'number' || typeof lng !== 'number') return 0;
     return distanciaHaversineKm(lat, lng, CENTRO_CDE.lat, CENTRO_CDE.lng) <= RADIO_CENTRO_KM
@@ -1006,17 +1010,18 @@ async function calcularTarifa() {
     aviso.classList.add('hidden');
 
     const desgloseViaje = obtenerDesgloseTarifa(distanciaKm);
-    const tarifaMotoflow = desgloseViaje.tarifaMotoCourier;
-    const recargoCentro = calcularRecargoCentro(puntoRetiro.lat, puntoRetiro.lng);
+    // El recargo de zona céntrica va sumado a la tarifa (no se detalla aparte).
+    const recargoCentro = recargoCentroDelPedido();
+    const tarifaMotoflow = desgloseViaje.tarifaMotoCourier + recargoCentro;
 
     // Solo Compra por Encargo cobra el producto (la comisión está en 0 por
     // ahora, ver PORCENTAJE_COMISION_ENCARGO más arriba).
     const esEncargo = tipoServicio === 'encargo';
     const comisionEncargo = esEncargo ? Math.round(montoCompra * PORCENTAJE_COMISION_ENCARGO) : 0;
-    const totalCobro = tarifaMotoflow + recargoCentro + (esEncargo ? montoCompra + comisionEncargo : 0);
+    const totalCobro = tarifaMotoflow + (esEncargo ? montoCompra + comisionEncargo : 0); // la tarifa ya incluye el recargo
 
     document.getElementById('distanciaKm').textContent = distanciaKm;
-    document.getElementById('desgloseTarifaBase').textContent = desgloseViaje.tarifaBase.toLocaleString('es-PY');
+    document.getElementById('desgloseTarifaBase').textContent = (desgloseViaje.tarifaBase + recargoCentro).toLocaleString('es-PY');
     document.getElementById('desgloseKmAdicionales').textContent =
         `${desgloseViaje.kmAdicionales.toLocaleString('es-PY')} km × 4.000 = ${desgloseViaje.costoKmAdicionales.toLocaleString('es-PY')}`;
     document.getElementById('desgloseTarifaMoto').textContent = tarifaMotoflow.toLocaleString('es-PY');
@@ -1024,13 +1029,11 @@ async function calcularTarifa() {
     document.getElementById('labelComisionEncargo').textContent =
         `Comisión por encargo (${Math.round(PORCENTAJE_COMISION_ENCARGO * 100)}%):`;
     document.getElementById('desgloseComision').textContent = comisionEncargo.toLocaleString('es-PY');
-    document.getElementById('desgloseRecargoCentro').textContent = recargoCentro.toLocaleString('es-PY');
     document.getElementById('desgloseTotal').textContent = totalCobro.toLocaleString('es-PY');
 
     document.getElementById('filaMontoCompra').classList.toggle('hidden', !esEncargo);
     document.getElementById('filaComision').classList.toggle('hidden', comisionEncargo <= 0);
     document.getElementById('filaKmAdicionales').classList.toggle('hidden', desgloseViaje.kmAdicionales <= 0);
-    document.getElementById('filaRecargoCentro').classList.toggle('hidden', recargoCentro <= 0);
     document.getElementById('desgloseTarifa').classList.remove('hidden');
 }
 
@@ -1096,8 +1099,8 @@ async function crearPedidoConTarifaInterno() {
         return;
     }
 
+    const recargoCentro = recargoCentroDelPedido();
     const tarifaMotoflow = obtenerTarifa(distanciaKm);
-    const recargoCentro = calcularRecargoCentro(puntoRetiro.lat, puntoRetiro.lng);
     const comisionEncargo = tipoServicio === 'encargo'
         ? Math.round(montoCompra * PORCENTAJE_COMISION_ENCARGO)
         : 0;
