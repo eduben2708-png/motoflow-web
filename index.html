@@ -479,6 +479,7 @@
                         ⚠️ Estás desconectado: no recibís pedidos nuevos. Tocá "Activar GPS".
                     </div>
                     <div style="font-size:12px; color:var(--text-muted); margin:0 0 10px;">📱 Dejá la pantalla encendida y el celular cargando para no perder pedidos.</div>
+                    <button id="btnProbarNotificaciones" onclick="probarNotificacionesRepartidor()" style="background:transparent; box-shadow:none; border:1px solid var(--color-border-strong); color:var(--text-primary); font-size:13px; padding:8px 12px; margin:0 0 10px;">🔔 Probar que me lleguen los avisos</button>
                     <div id="listaMiRuta"></div>
                 </div>
 
@@ -784,6 +785,45 @@
                     suscribirseANotificacionesPush();
                 }
             });
+        }
+
+        // Botón "Probar que me lleguen los avisos": deja registrado este celular y le
+        // pide al servidor que mande una notificación de prueba a los 8 segundos, para
+        // que el repartidor alcance a minimizar la app o bloquear la pantalla.
+        async function probarNotificacionesRepartidor() {
+            const boton = document.getElementById('btnProbarNotificaciones');
+            if (!('Notification' in window) || !('serviceWorker' in navigator) || !('PushManager' in window)) {
+                alert('Este celular o navegador no permite notificaciones. Instalá la app desde Chrome (Android) o desde Safari con "Agregar a inicio" (iPhone).');
+                return;
+            }
+            if (Notification.permission === 'denied') {
+                alert('Las notificaciones están bloqueadas para esta app. Entrá a Ajustes > Aplicaciones > JMMotocourier (o Chrome) > Notificaciones y activalas. Después volvé y probá de nuevo.');
+                return;
+            }
+            if (boton) { boton.disabled = true; boton.textContent = '🔔 Preparando prueba…'; }
+            try {
+                await suscribirseANotificacionesPush();
+                if (Notification.permission !== 'granted') {
+                    alert('Para recibir pedidos tenés que tocar "Permitir" cuando el celular pregunta por las notificaciones. Tocá el botón de nuevo y aceptá.');
+                    return;
+                }
+                const respuesta = await fetch(`${API_URL}/push/probar`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ usuario_id: usuarioId })
+                });
+                const data = await respuesta.json().catch(() => ({}));
+                if (!respuesta.ok) throw new Error(data.error || 'No se pudo hacer la prueba');
+                if (!data.dispositivos) {
+                    alert('Este celular no quedó registrado para recibir avisos. Cerrá sesión, volvé a entrar y aceptá las notificaciones.');
+                    return;
+                }
+                alert(`Listo. En ${data.segundos} segundos te va a llegar una notificación.\n\nAhora MINIMIZÁ la app (o bloqueá la pantalla) y esperá. Si la notificación suena y aparece, tu celular está bien. Si no llega, revisá la batería de la app (mirá el tutorial "Dejá tu celular listo").`);
+            } catch (error) {
+                alert(error.message);
+            } finally {
+                if (boton) { boton.disabled = false; boton.textContent = '🔔 Probar que me lleguen los avisos'; }
+            }
         }
 
         async function desuscribirseDeNotificacionesPush() {
