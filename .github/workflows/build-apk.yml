@@ -1,0 +1,54 @@
+name: Compilar APK de repartidores
+
+on:
+  workflow_dispatch: {}
+  push:
+    paths:
+      - 'app-android/**'
+      - '.github/workflows/build-apk.yml'
+
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - name: Instalar dependencias
+        working-directory: app-android
+        run: npm install --no-audit --no-fund
+
+      - name: Crear proyecto Android
+        working-directory: app-android
+        run: npx cap add android
+
+      - name: Preparar (Firebase, sonido, íconos, permisos, firma)
+        working-directory: app-android
+        env:
+          APP_VERSION_CODE: ${{ github.run_number }}
+        run: node scripts/preparar-android.js
+
+      - name: Sincronizar plugins
+        working-directory: app-android
+        run: npx cap sync android
+
+      - name: Compilar APK
+        working-directory: app-android/android
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleDebug --no-daemon
+
+      - name: Guardar APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: JMMotocourier-Repartidor-APK
+          path: app-android/android/app/build/outputs/apk/debug/app-debug.apk
+          retention-days: 30

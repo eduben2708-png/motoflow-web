@@ -1,0 +1,24 @@
+APP ANDROID DE JMMOTOCOURIER (para repartidores)
+================================================
+
+Esta carpeta NO es la página web: es un "envoltorio" que carga la misma página
+(https://jmmotocourier.com.py) dentro de una app de Android instalable (APK).
+La app agrega lo que una página web no puede hacer:
+  - Avisos de pedido nuevos por Firebase, con sonido de alarma propio, aunque la app esté cerrada.
+  - GPS que sigue funcionando con la app minimizada o la pantalla bloqueada
+    (muestra el aviso fijo "JMMotocourier activo").
+
+El APK lo compila GitHub solo (carpeta .github/workflows). No hace falta instalar nada.
+
+Cómo sacar un APK nuevo
+  1. En GitHub: pestaña "Actions" > "Compilar APK de repartidores" > "Run workflow".
+  2. Cuando termine (unos 5 a 10 minutos), entrá a esa ejecución y bajá el archivo
+     "JMMotocourier-Repartidor-APK" (viene en un .zip con el app-debug.apk adentro).
+  3. Pasale el APK a los repartidores y que lo instalen (hay que permitir "instalar apps
+     de origen desconocido").
+
+Archivos importantes
+  - google-services.json : configuración de Firebase (se descarga desde la consola de Firebase).
+  - capacitor.config.json : dirección de la página que carga la app.
+  - debug.keystore : firma fija, para que las actualizaciones se instalen encima de la versión anterior.
+  - resources/ : sonido de alarma e íconos.

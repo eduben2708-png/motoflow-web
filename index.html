@@ -722,7 +722,139 @@
             return salida;
         }
 
+        // ---- App Android (Capacitor) ----
+        // Dentro de la app Android (APK) los avisos llegan por Firebase y el GPS lo maneja
+        // un servicio nativo que sigue funcionando con la app minimizada. En el navegador
+        // común nada de esto se usa y todo sigue como antes.
+        const ES_APP_NATIVA = (() => {
+            try { return !!(window.Capacitor && typeof window.Capacitor.isNativePlatform === 'function' && window.Capacitor.isNativePlatform()); }
+            catch (error) { return false; }
+        })();
+
+        function pluginNativo(nombre) {
+            try {
+                const cap = window.Capacitor;
+                if (!cap) return null;
+                if (cap.Plugins && cap.Plugins[nombre]) return cap.Plugins[nombre];
+                if (typeof cap.registerPlugin === 'function') return cap.registerPlugin(nombre);
+            } catch (error) {}
+            return null;
+        }
+
+        let tokenFcmActual = null;
+        let escuchasPushNativoListas = false;
+        let resolverTokenFcm = null;
+        let watcherGpsNativoId = null;
+
+        // Pedido HTTP hecho por el sistema Android (no por el navegador): Android frena los
+        // pedidos del navegador cuando la app está minimizada, y estos no.
+        async function enviarJsonNativo(url, metodo, cuerpo) {
+            const http = pluginNativo('CapacitorHttp');
+            if (http && typeof http.request === 'function') {
+                const respuesta = await http.request({ url, method: metodo, headers: { 'Content-Type': 'application/json' }, data: cuerpo });
+                return { ok: respuesta.status >= 200 && respuesta.status < 300, data: respuesta.data || {} };
+            }
+            const respuesta = await fetch(url, { method: metodo, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(cuerpo) });
+            return { ok: respuesta.ok, data: await respuesta.json().catch(() => ({})) };
+        }
+
+        async function registrarPushNativo() {
+            const Push = pluginNativo('PushNotifications');
+            if (!Push) {
+                console.log('La app Android no tiene el módulo de notificaciones.');
+                return false;
+            }
+            try {
+                await Push.createChannel({ id: 'pedidos', name: 'Pedidos nuevos', description: 'Alarma cuando te asignan un pedido', importance: 5, visibility: 1, sound: 'alarma.wav', vibration: true, lights: true });
+                await Push.createChannel({ id: 'mensajes', name: 'Mensajes del chat', description: 'Mensajes sobre tus pedidos', importance: 4, visibility: 1, vibration: true });
+
+                let permiso = await Push.checkPermissions();
+                if (permiso.receive !== 'granted') permiso = await Push.requestPermissions();
+                if (permiso.receive !== 'granted') return false;
+
+                if (!escuchasPushNativoListas) {
+                    escuchasPushNativoListas = true;
+                    await Push.addListener('registration', async (token) => {
+                        tokenFcmActual = token.value;
+                        try {
+                            await fetch(`${API_URL}/push/fcm/suscribir`, {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ usuario_id: usuarioId, token: token.value })
+                            });
+                        } catch (error) {
+                            console.error('No se pudo registrar el celular para los avisos.', error);
+                        }
+                        if (resolverTokenFcm) { resolverTokenFcm(true); resolverTokenFcm = null; }
+                    });
+                    await Push.addListener('registrationError', (error) => {
+                        console.error('Error al registrar las notificaciones de la app.', error);
+                        if (resolverTokenFcm) { resolverTokenFcm(false); resolverTokenFcm = null; }
+                    });
+                    await Push.addListener('pushNotificationActionPerformed', () => {
+                        try { if (esRepartidor) cargarPanelMiRuta(true); } catch (error) {}
+                    });
+                }
+
+                const registrado = new Promise(resolver => {
+                    resolverTokenFcm = resolver;
+                    setTimeout(() => resolver(false), 10000);
+                });
+                await Push.register();
+                return await registrado;
+            } catch (error) {
+                console.error('No se pudieron activar las notificaciones de la app.', error);
+                return false;
+            }
+        }
+
+        async function desregistrarPushNativo() {
+            if (!tokenFcmActual) return;
+            try {
+                await fetch(`${API_URL}/push/fcm/desuscribir`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ token: tokenFcmActual })
+                });
+            } catch (error) {
+                console.error(error);
+            }
+        }
+
+        // GPS de la app Android: un servicio con aviso fijo "JMMotocourier activo" que
+        // sigue mandando la ubicación con la app minimizada o la pantalla bloqueada.
+        async function iniciarGpsNativo(enviar) {
+            const BG = pluginNativo('BackgroundGeolocation');
+            if (!BG) return null;
+            let ultimoEnvio = 0;
+            return BG.addWatcher({
+                backgroundTitle: 'JMMotocourier activo',
+                backgroundMessage: 'Estás conectado y podés recibir pedidos.',
+                requestPermissions: true,
+                stale: false,
+                distanceFilter: 10
+            }, (ubicacion, error) => {
+                if (error) {
+                    console.error(error);
+                    if (error.code === 'NOT_AUTHORIZED') {
+                        alert('Para recibir pedidos la app necesita acceso a tu ubicación. Activalo en Ajustes > Aplicaciones > JMMotocourier > Permisos > Ubicación.');
+                        try { BG.openSettings(); } catch (e) {}
+                    }
+                    return;
+                }
+                const posicion = { coords: { latitude: ubicacion.latitude, longitude: ubicacion.longitude } };
+                // El GPS avisa seguido: se manda como mucho cada 15 segundos.
+                if (Date.now() - ultimoEnvio < 15000) {
+                    ultimaPosicionGps = posicion;
+                    return;
+                }
+                ultimoEnvio = Date.now();
+                enviar(posicion);
+            });
+        }
+
         async function suscribirseANotificacionesPush() {
+            if (ES_APP_NATIVA) return registrarPushNativo();
             if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
                 console.log('Este navegador no soporta notificaciones push.');
                 return;
@@ -792,18 +924,22 @@
         // que el repartidor alcance a minimizar la app o bloquear la pantalla.
         async function probarNotificacionesRepartidor() {
             const boton = document.getElementById('btnProbarNotificaciones');
-            if (!('Notification' in window) || !('serviceWorker' in navigator) || !('PushManager' in window)) {
+            if (!ES_APP_NATIVA && (!('Notification' in window) || !('serviceWorker' in navigator) || !('PushManager' in window))) {
                 alert('Este celular o navegador no permite notificaciones. Instalá la app desde Chrome (Android) o desde Safari con "Agregar a inicio" (iPhone).');
                 return;
             }
-            if (Notification.permission === 'denied') {
+            if (!ES_APP_NATIVA && Notification.permission === 'denied') {
                 alert('Las notificaciones están bloqueadas para esta app. Entrá a Ajustes > Aplicaciones > JMMotocourier (o Chrome) > Notificaciones y activalas. Después volvé y probá de nuevo.');
                 return;
             }
             if (boton) { boton.disabled = true; boton.textContent = '🔔 Preparando prueba…'; }
             try {
-                await suscribirseANotificacionesPush();
-                if (Notification.permission !== 'granted') {
+                const registrado = await suscribirseANotificacionesPush();
+                if (ES_APP_NATIVA && !registrado) {
+                    alert('No se pudo registrar este celular para los avisos. Revisá que la app tenga permiso de notificaciones (Ajustes > Aplicaciones > JMMotocourier > Notificaciones) y tocá el botón de nuevo.');
+                    return;
+                }
+                if (!ES_APP_NATIVA && Notification.permission !== 'granted') {
                     alert('Para recibir pedidos tenés que tocar "Permitir" cuando el celular pregunta por las notificaciones. Tocá el botón de nuevo y aceptá.');
                     return;
                 }
@@ -827,6 +963,7 @@
         }
 
         async function desuscribirseDeNotificacionesPush() {
+            if (ES_APP_NATIVA) return desregistrarPushNativo();
             if (!('serviceWorker' in navigator)) return;
             try {
                 const registro = await navigator.serviceWorker.getRegistration();
@@ -2634,6 +2771,10 @@ async function crearPedidoConTarifaInterno() {
         // chat). El navegador exige que el permiso se pida con un toque del
         // usuario, así que se ofrece con un cartel en vez de pedirlo solo.
         function prepararAvisosNoRepartidor() {
+            if (ES_APP_NATIVA) {
+                suscribirseANotificacionesPush();
+                return;
+            }
             if (!('Notification' in window) || !('serviceWorker' in navigator) || !('PushManager' in window)) return;
 
             if (Notification.permission === 'granted') {
@@ -3501,16 +3642,19 @@ async function cargarHistorial() {
                 const enviarPosicionGps = async posicion => {
                     try {
                         ultimaPosicionGps = posicion;
-                        const respuesta = await fetch(`${API_URL}/repartidores/${repartidor.id}/gps`, {
-                            method: 'PUT',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({
-                                lat: posicion.coords.latitude,
-                                lng: posicion.coords.longitude,
-                                activo: true
-                            })
-                        });
-                        const data = await respuesta.json();
+                        const cuerpoGps = { lat: posicion.coords.latitude, lng: posicion.coords.longitude, activo: true };
+                        let respuesta, data;
+                        if (ES_APP_NATIVA) {
+                            respuesta = await enviarJsonNativo(`${API_URL}/repartidores/${repartidor.id}/gps`, 'PUT', cuerpoGps);
+                            data = respuesta.data;
+                        } else {
+                            respuesta = await fetch(`${API_URL}/repartidores/${repartidor.id}/gps`, {
+                                method: 'PUT',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify(cuerpoGps)
+                            });
+                            data = await respuesta.json();
+                        }
                         if (!respuesta.ok) throw new Error(data.error || 'No se pudo guardar el GPS');
 
                         mostrarEstadoGps(`GPS activo · ${new Date().toLocaleTimeString('es-PY', { hour: '2-digit', minute: '2-digit' })}`, true);
@@ -3520,12 +3664,25 @@ async function cargarHistorial() {
                     }
                 };
                 enviarPosicionGpsActual = enviarPosicionGps;
-                seguimientoGpsId = navigator.geolocation.watchPosition(enviarPosicionGps, error => {
-                    mostrarEstadoGps('GPS no disponible', false);
-                    alert('No se pudo obtener tu ubicación. Permití el acceso a la ubicación en el navegador.');
-                    console.error(error);
-                    detenerSeguimientoGpsRepartidor();
-                }, { enableHighAccuracy: true, timeout: 15000, maximumAge: 15000 });
+                if (ES_APP_NATIVA && pluginNativo('BackgroundGeolocation')) {
+                    // Se marca como conectado ya, para que un segundo toque no cree otro seguimiento.
+                    seguimientoGpsId = 'nativo';
+                    try {
+                        watcherGpsNativoId = await iniciarGpsNativo(enviarPosicionGps);
+                    } catch (error) {
+                        console.error(error);
+                        mostrarEstadoGps('GPS no disponible', false);
+                        detenerSeguimientoGpsRepartidor();
+                        return;
+                    }
+                } else {
+                    seguimientoGpsId = navigator.geolocation.watchPosition(enviarPosicionGps, error => {
+                        mostrarEstadoGps('GPS no disponible', false);
+                        alert('No se pudo obtener tu ubicación. Permití el acceso a la ubicación en el navegador.');
+                        console.error(error);
+                        detenerSeguimientoGpsRepartidor();
+                    }, { enableHighAccuracy: true, timeout: 15000, maximumAge: 15000 });
+                }
 
                 // watchPosition solo avisa cuando te movés: si estás quieto esperando
                 // un pedido, reenviamos la última posición cada 60 s para que el
@@ -3541,7 +3698,11 @@ async function cargarHistorial() {
         }
 
         function detenerSeguimientoGpsRepartidor() {
-            if (seguimientoGpsId !== null && navigator.geolocation) {
+            if (watcherGpsNativoId !== null) {
+                const BG = pluginNativo('BackgroundGeolocation');
+                try { if (BG) BG.removeWatcher({ id: watcherGpsNativoId }); } catch (error) { console.error(error); }
+                watcherGpsNativoId = null;
+            } else if (seguimientoGpsId !== null && seguimientoGpsId !== 'nativo' && navigator.geolocation) {
                 navigator.geolocation.clearWatch(seguimientoGpsId);
             }
             seguimientoGpsId = null;

@@ -1,0 +1,17 @@
+{
+  "appId": "com.jmmotocourier.repartidor",
+  "appName": "JMMotocourier",
+  "webDir": "www",
+  "server": {
+    "url": "https://www.jmmotocourier.com.py",
+    "cleartext": false
+  },
+  "android": {
+    "useLegacyBridge": true
+  },
+  "plugins": {
+    "PushNotifications": {
+      "presentationOptions": ["badge", "sound", "alert"]
+    }
+  }
+}

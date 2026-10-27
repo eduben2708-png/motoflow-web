@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "167054204702",
+    "project_id": "jmmotocourier-db351",
+    "storage_bucket": "jmmotocourier-db351.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:167054204702:android:de109eac08defbf28b730f",
+        "android_client_info": {
+          "package_name": "com.jmmotocourier.repartidor"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBL0Aw1lKn5spi80vDxP0_0svqxte9lrR0"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
