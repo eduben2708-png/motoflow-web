@@ -52,10 +52,13 @@
         /* Botones de acción principal (Iniciar viaje / Paquete retirado / Entregado): grandes, para tocar sin errar */
         .ruta-accion button { margin:0; width:100%; min-height:64px; padding:18px 14px; font-size:19px; font-weight:800; border-radius:var(--radius-md); }
         /* Botones secundarios (chat, llamar, navegar): chicos y en una sola fila */
-        .ruta-secundarios { display:grid; grid-auto-flow:column; grid-auto-columns:1fr; gap:8px; }
-        .ruta-sec { display:flex; align-items:center; justify-content:center; gap:4px; min-height:42px; padding:8px 6px; margin:0; font-size:13px; font-weight:700; border:none; border-radius:var(--radius-md); color:#fff !important; text-decoration:none; cursor:pointer; text-align:center; }
+        .ruta-secundarios { display:grid; grid-auto-flow:column; grid-auto-columns:minmax(0,1fr); gap:6px; }
+        .ruta-sec { display:flex; flex-wrap:wrap; align-items:center; justify-content:center; gap:2px; min-width:0; min-height:42px; padding:8px 2px; margin:0; font-size:12px; font-weight:700; border:none; border-radius:var(--radius-md); color:#fff !important; text-decoration:none; cursor:pointer; text-align:center; }
+        /* Celulares angostos (la mayoría): los 4 botones pasan a 2 filas de 2 para que no se corten los nombres */
+        @media (max-width:380px) { .ruta-secundarios { grid-auto-flow:row; grid-template-columns:repeat(2,minmax(0,1fr)); } }
         .ruta-sec-chat { background:#9c27b0; }
         .ruta-sec-llamar { background:#15803d; }
+        .ruta-sec-whatsapp { background:#1fa855; }
         .ruta-sec-navegar { background:#2563eb; }
             /* Logo nuevo (PNG con fondo transparente): sin recorte circular, para que no se corte el texto */
         .logo-img { width:200px; height:200px; border-radius:0; object-fit:contain; box-shadow:none; filter:drop-shadow(0 8px 18px rgba(249,115,22,0.30)); }
@@ -3398,6 +3401,11 @@ async function crearPedidoConTarifaInterno() {
                         ? `<a class="ruta-sec ruta-sec-llamar" href="tel:+595${pedido.telefono_destinatario}">📞 Llamar</a>`
                         : '';
 
+                    const enlaceWhatsApp = enlaceWhatsAppPedido(pedido);
+                    const botonWhatsApp = enlaceWhatsApp
+                        ? `<a class="ruta-sec ruta-sec-whatsapp" href="${enlaceWhatsApp}" target="_blank" rel="noopener noreferrer">📲 WhatsApp</a>`
+                        : '';
+
                     return `
                         <div class="pedido-card ruta-card" id="tarjeta-pedido-${pedido.id}">
                             <div class="pedido-header">
@@ -3435,6 +3443,7 @@ async function crearPedidoConTarifaInterno() {
                             <div class="ruta-secundarios">
                                 <button type="button" class="ruta-sec ruta-sec-chat" onclick="abrirChat(${pedido.id})">💬 Chat</button>
                                 ${botonLlamar}
+                                ${botonWhatsApp}
                                 ${botonNavegar}
                             </div>
                         </div>
@@ -4294,6 +4303,25 @@ async function cargarHistorial() {
             if (numero.startsWith('595')) numero = numero.slice(3);
             if (numero.startsWith('0')) numero = numero.slice(1);
             return numero.length === 9 ? `+595${numero}` : '';
+        }
+
+        // Enlace para escribirle por WhatsApp a la persona con la que el repartidor
+        // tiene que hablar en esa etapa: el cliente mientras va al retiro y el
+        // destinatario mientras va a la entrega (si falta uno, usa el otro). Abre el
+        // chat con un mensaje ya escrito; el repartidor solo toca "Enviar".
+        // Solo se arma para pedidos en curso: la tarjeta de "Mi ruta" no muestra
+        // pedidos entregados ni cancelados, así que el número deja de verse solo.
+        function enlaceWhatsAppPedido(pedido) {
+            const sinMas = telefono => telefonoParaLlamar(telefono).replace('+', '');
+            const voyAlRetiro = pedido.estado !== 'en_camino';
+            const delCliente = sinMas(pedido.cliente_telefono);
+            const delDestinatario = sinMas(pedido.telefono_destinatario);
+            const numero = voyAlRetiro ? (delCliente || delDestinatario) : (delDestinatario || delCliente);
+            if (!numero) return '';
+            const mensaje = voyAlRetiro
+                ? `Hola, soy tu repartidor de JMMotocourier. Voy en camino a retirar el pedido #${pedido.id}.`
+                : `Hola, soy tu repartidor de JMMotocourier. Estoy llevando el pedido #${pedido.id}. ¿Me confirmás que vas a estar para recibirlo?`;
+            return `https://wa.me/${numero}?text=${encodeURIComponent(mensaje)}`;
         }
 
         let marcadorRetiroSeg = null;
