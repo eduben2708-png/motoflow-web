@@ -212,6 +212,9 @@
                 <button id="navFinanzas" class="nav-btn" onclick="mostrarSeccion('financiero')">
                     <span class="nav-icon">💰</span><span class="nav-label">Financiero</span>
                 </button>
+                <button id="navReporte" class="nav-btn hidden" onclick="mostrarSeccion('reporte')">
+                    <span class="nav-icon">📊</span><span class="nav-label">Reporte</span>
+                </button>
                 <button id="navMapaAdmin" class="nav-btn hidden" onclick="mostrarSeccion('mapaAdmin')">
                     <span class="nav-icon">📡</span><span class="nav-label">Mapa</span>
                 </button>
@@ -558,6 +561,50 @@
                         <button onclick="cargarHistorial()">Filtrar</button>
                     </div>
                     <div id="listaHistorial"></div>
+                </div>
+
+                <!-- REPORTE (solo administrador) -->
+                <div id="seccionReporte" class="hidden">
+                    <div class="card" style="margin-bottom: 16px;">
+                        <div style="font-weight:700; font-size:17px; margin-bottom:10px;">📊 Reporte de pedidos</div>
+                        <div class="reporte-atajos">
+                            <button type="button" onclick="reporteAtajo('hoy')">Hoy</button>
+                            <button type="button" onclick="reporteAtajo('ayer')">Ayer</button>
+                            <button type="button" onclick="reporteAtajo('semana')">Esta semana</button>
+                            <button type="button" onclick="reporteAtajo('mes')">Este mes</button>
+                            <button type="button" onclick="reporteAtajo('todo')">Todo</button>
+                        </div>
+                        <div class="form-group">
+                            <label class="label">Desde</label>
+                            <input type="date" id="reporteDesde">
+                        </div>
+                        <div class="form-group">
+                            <label class="label">Hasta</label>
+                            <input type="date" id="reporteHasta">
+                        </div>
+                        <div class="form-group">
+                            <label class="label">Estado</label>
+                            <select id="reporteEstado">
+                                <option value="entregado">Entregados</option>
+                                <option value="cancelado">Cancelados</option>
+                                <option value="">Entregados y cancelados</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label class="label">Cliente</label>
+                            <select id="reporteCliente"><option value="">Todos los clientes</option></select>
+                        </div>
+                        <div class="form-group">
+                            <label class="label">Repartidor</label>
+                            <select id="reporteRepartidor"><option value="">Todos los repartidores</option></select>
+                        </div>
+                        <div class="reporte-acciones">
+                            <button type="button" onclick="cargarReporte()">🔍 Ver reporte</button>
+                            <button type="button" id="reporteBotonPdf" onclick="descargarPdfReporte()" disabled style="background:#15803d;">📄 Descargar PDF</button>
+                        </div>
+                    </div>
+                    <div id="reporteResumen"></div>
+                    <div id="reporteTabla"></div>
                 </div>
             </div>
         </div>
@@ -1674,6 +1721,7 @@ async function crearPedidoConTarifaInterno() {
     document.getElementById('navRepartidores').classList.toggle('hidden', esRepartidor || usuarioRol !== 'admin');
     document.getElementById('navAdmin').classList.toggle('hidden', esRepartidor || usuarioRol !== 'admin');
     document.getElementById('navFinanzas').classList.toggle('hidden', esRepartidor || usuarioRol !== 'admin');
+    document.getElementById('navReporte').classList.toggle('hidden', esRepartidor || usuarioRol !== 'admin');
     document.getElementById('navMapaAdmin').classList.toggle('hidden', esRepartidor || usuarioRol !== 'admin');
     document.getElementById('navMiRuta').classList.toggle('hidden', !esRepartidor);
     document.getElementById('navHistorial').classList.remove('hidden');
@@ -2565,7 +2613,7 @@ async function crearPedidoConTarifaInterno() {
         return;
     }
 
-            if (['admin', 'repartidores', 'clientes', 'financiero', 'mapaAdmin'].includes(seccion) && usuarioRol !== 'admin') {
+            if (['admin', 'repartidores', 'clientes', 'financiero', 'mapaAdmin', 'reporte'].includes(seccion) && usuarioRol !== 'admin') {
                 alert('Esta sección es exclusiva para el administrador.');
                 return;
             }
@@ -2581,6 +2629,7 @@ async function crearPedidoConTarifaInterno() {
             document.getElementById('seccionMapaAdmin').classList.add('hidden');
             document.getElementById('seccionMiRuta').classList.add('hidden');
             document.getElementById('seccionHistorial').classList.add('hidden');
+            document.getElementById('seccionReporte').classList.add('hidden');
 
             if (seccion !== 'chat' && intervaloChat !== null) {
                 clearInterval(intervaloChat);
@@ -2642,6 +2691,10 @@ async function crearPedidoConTarifaInterno() {
                 document.getElementById('seccionHistorial').classList.remove('hidden');
                 event.target.classList.add('active');
                 cargarHistorial();
+            } else if (seccion === 'reporte') {
+                document.getElementById('seccionReporte').classList.remove('hidden');
+                document.getElementById('navReporte').classList.add('active');
+                prepararReporte();
             }
         }
 
@@ -4762,6 +4815,405 @@ async function cargarHistorial() {
             intervaloNotificacionesCliente = setInterval(revisar, 5000);
         }
     </script>
+    <!-- Reporte de pedidos (solo administrador): tabla con filtros y descarga en PDF -->
+    <style>
+        .reporte-atajos { display:flex; flex-wrap:wrap; gap:6px; margin-bottom:12px; }
+        .reporte-atajos button { width:auto; margin:0; padding:7px 12px; font-size:13px; background:var(--color-bg-elevated-2, #1e293b); border:1px solid var(--color-border-strong, #334155); color:var(--text-primary, #e5edff); }
+        .reporte-acciones { display:flex; gap:8px; flex-wrap:wrap; margin-top:4px; }
+        .reporte-acciones button { flex:1; min-width:140px; margin:0; }
+        .reporte-resumen { display:flex; flex-wrap:wrap; gap:10px; margin:0 0 12px; }
+        .reporte-resumen .caja { flex:1; min-width:130px; background:var(--color-bg-elevated, #131c33); border:1px solid var(--color-border, #26324d); border-radius:10px; padding:10px 12px; }
+        .reporte-resumen .caja span { display:block; font-size:12px; color:var(--text-secondary, #8899bb); }
+        .reporte-resumen .caja strong { font-size:19px; }
+        .reporte-tabla-caja { overflow-x:auto; border:1px solid var(--color-border, #26324d); border-radius:10px; }
+        table.reporte-tabla { width:100%; border-collapse:collapse; font-size:13px; min-width:560px; }
+        table.reporte-tabla th { text-align:left; padding:10px 8px; background:var(--color-bg-elevated-2, #1e293b); color:var(--text-secondary, #9fb0d0); font-size:12px; position:sticky; top:0; }
+        table.reporte-tabla td { padding:9px 8px; border-top:1px solid var(--color-border, #26324d); vertical-align:top; }
+        table.reporte-tabla .der { text-align:right; white-space:nowrap; }
+        table.reporte-tabla tr.cancelado td { opacity:.6; }
+        table.reporte-tabla tr.cancelado td.der { text-decoration:line-through; }
+        table.reporte-tabla tfoot td { font-weight:800; border-top:2px solid var(--color-border-strong, #334155); }
+    </style>
+    <script>
+        // ---------------------------------------------------------------
+        // REPORTE DE PEDIDOS (solo administrador)
+        // Columnas: Fecha · Nro de pedido · Cliente · Repartidor · Valor.
+        // Usa el mismo servicio del Historial (/pedidos/historial), así que
+        // no hace falta tocar el servidor. El PDF se arma acá mismo, sin
+        // librerías externas.
+        // ---------------------------------------------------------------
+        const REPORTE = { filas: [], resumen: null, filtros: null, listasCargadas: false };
+
+        function escaparHtmlReporte(texto) {
+            return String(texto ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+        }
+
+        function fechaISOLocal(fecha) {
+            const dos = n => String(n).padStart(2, '0');
+            return `${fecha.getFullYear()}-${dos(fecha.getMonth() + 1)}-${dos(fecha.getDate())}`;
+        }
+
+        // "28/10/2026 14:35" (24 horas, hora de Paraguay), compacta para la tabla y el PDF.
+        function fechaHoraReporte(valor) {
+            const partes = new Intl.DateTimeFormat('es-PY', {
+                timeZone: 'America/Asuncion', day: '2-digit', month: '2-digit', year: 'numeric',
+                hour: '2-digit', minute: '2-digit', hourCycle: 'h23'
+            }).formatToParts(new Date(valor));
+            const dato = tipo => (partes.find(p => p.type === tipo) || {}).value || '';
+            return `${dato('day')}/${dato('month')}/${dato('year')} ${dato('hour')}:${dato('minute')}`;
+        }
+
+        function fechaCortaDeISO(iso) {
+            if (!iso) return '';
+            const [a, m, d] = iso.split('-');
+            return `${d}/${m}/${a}`;
+        }
+
+        function reporteAtajo(tipo) {
+            const hoy = new Date();
+            let desde = new Date(hoy);
+            let hasta = new Date(hoy);
+            if (tipo === 'ayer') {
+                desde.setDate(hoy.getDate() - 1);
+                hasta = new Date(desde);
+            } else if (tipo === 'semana') {
+                // Semana de lunes a hoy.
+                const diasDesdeLunes = (hoy.getDay() + 6) % 7;
+                desde.setDate(hoy.getDate() - diasDesdeLunes);
+            } else if (tipo === 'mes') {
+                desde = new Date(hoy.getFullYear(), hoy.getMonth(), 1);
+            } else if (tipo === 'todo') {
+                desde = null;
+                hasta = null;
+            }
+            document.getElementById('reporteDesde').value = desde ? fechaISOLocal(desde) : '';
+            document.getElementById('reporteHasta').value = hasta ? fechaISOLocal(hasta) : '';
+            cargarReporte();
+        }
+
+        async function prepararReporte() {
+            if (!REPORTE.listasCargadas) {
+                try {
+                    const [resClientes, resRepartidores] = await Promise.all([
+                        fetch(`${API_URL}/auth/clientes`),
+                        fetch(`${API_URL}/repartidores`)
+                    ]);
+                    const clientes = resClientes.ok ? await resClientes.json() : [];
+                    const repartidores = resRepartidores.ok ? await resRepartidores.json() : [];
+
+                    const porNombre = (a, b) => String(a.nombre || '').localeCompare(String(b.nombre || ''), 'es');
+                    document.getElementById('reporteCliente').innerHTML = '<option value="">Todos los clientes</option>' +
+                        clientes.slice().sort(porNombre).map(c => `<option value="${Number(c.id)}">${escaparHtmlReporte(c.nombre || `Cliente #${c.id}`)}</option>`).join('');
+                    document.getElementById('reporteRepartidor').innerHTML = '<option value="">Todos los repartidores</option>' +
+                        repartidores.slice().sort(porNombre).map(r => `<option value="${Number(r.id)}">${escaparHtmlReporte(r.nombre || `Repartidor #${r.id}`)}</option>`).join('');
+                    REPORTE.nombresRepartidores = new Map(repartidores.map(r => [Number(r.id), r.nombre || `Repartidor #${r.id}`]));
+                    REPORTE.listasCargadas = true;
+                } catch (error) {
+                    console.error(error);
+                }
+            }
+            if (!document.getElementById('reporteDesde').value && !document.getElementById('reporteHasta').value && !REPORTE.yaAbierto) {
+                REPORTE.yaAbierto = true;
+                reporteAtajo('mes');
+            } else {
+                cargarReporte();
+            }
+        }
+
+        function textoFiltrosReporte() {
+            const desde = document.getElementById('reporteDesde').value;
+            const hasta = document.getElementById('reporteHasta').value;
+            const estado = document.getElementById('reporteEstado');
+            const cliente = document.getElementById('reporteCliente');
+            const repartidor = document.getElementById('reporteRepartidor');
+            const periodo = desde || hasta
+                ? `${desde ? fechaCortaDeISO(desde) : 'el inicio'} al ${hasta ? fechaCortaDeISO(hasta) : 'hoy'}`
+                : 'Todas las fechas';
+            return {
+                periodo,
+                estado: estado.options[estado.selectedIndex].text,
+                cliente: cliente.options[cliente.selectedIndex] ? cliente.options[cliente.selectedIndex].text : 'Todos los clientes',
+                repartidor: repartidor.options[repartidor.selectedIndex] ? repartidor.options[repartidor.selectedIndex].text : 'Todos los repartidores',
+                desde, hasta
+            };
+        }
+
+        function formatoGs(valor) {
+            return Number(valor || 0).toLocaleString('es-PY');
+        }
+
+        async function cargarReporte() {
+            const caja = document.getElementById('reporteTabla');
+            const resumen = document.getElementById('reporteResumen');
+            const botonPdf = document.getElementById('reporteBotonPdf');
+            caja.innerHTML = '<div class="no-data">Cargando...</div>';
+            resumen.innerHTML = '';
+            botonPdf.disabled = true;
+
+            try {
+                const params = new URLSearchParams();
+                const estado = document.getElementById('reporteEstado').value;
+                const desde = document.getElementById('reporteDesde').value;
+                const hasta = document.getElementById('reporteHasta').value;
+                const cliente = document.getElementById('reporteCliente').value;
+                const repartidor = document.getElementById('reporteRepartidor').value;
+                if (estado) params.append('estado', estado);
+                if (desde) params.append('fecha_desde', desde);
+                if (hasta) params.append('fecha_hasta', hasta);
+                if (cliente) params.append('cliente_id', cliente);
+                if (repartidor) params.append('repartidor_id', repartidor);
+
+                const res = await fetch(`${API_URL}/pedidos/historial?${params.toString()}`, { signal: AbortSignal.timeout(30000) });
+                if (!res.ok) throw new Error('No se pudo cargar el reporte');
+                const pedidos = await res.json();
+
+                // Del más viejo al más nuevo: se lee como una planilla.
+                const filas = pedidos
+                    .slice()
+                    .sort((a, b) => new Date(a.fecha_creacion) - new Date(b.fecha_creacion) || a.id - b.id)
+                    .map(p => ({
+                        id: p.id,
+                        fecha: fechaHoraReporte(p.fecha_creacion),
+                        cliente: p.cliente_nombre || `Cliente #${p.cliente_id}`,
+                        repartidor: p.repartidor_id
+                            ? ((REPORTE.nombresRepartidores && REPORTE.nombresRepartidores.get(Number(p.repartidor_id))) || `Repartidor #${p.repartidor_id}`)
+                            : 'Sin asignar',
+                        estado: p.estado,
+                        valor: Number(p.monto || 0)
+                    }));
+
+                const entregados = filas.filter(f => f.estado === 'entregado');
+                const cancelados = filas.filter(f => f.estado === 'cancelado');
+                REPORTE.filas = filas;
+                REPORTE.filtros = textoFiltrosReporte();
+                REPORTE.resumen = {
+                    cantidadEntregados: entregados.length,
+                    totalEntregados: entregados.reduce((s, f) => s + f.valor, 0),
+                    cantidadCancelados: cancelados.length
+                };
+
+                if (filas.length === 0) {
+                    caja.innerHTML = '<div class="no-data">No hay pedidos con estos filtros.</div>';
+                    return;
+                }
+
+                resumen.innerHTML = `
+                    <div class="reporte-resumen">
+                        <div class="caja"><span>Pedidos entregados</span><strong>${REPORTE.resumen.cantidadEntregados}</strong></div>
+                        <div class="caja"><span>Total entregados</span><strong style="color:#4ade80;">Gs. ${formatoGs(REPORTE.resumen.totalEntregados)}</strong></div>
+                        ${REPORTE.resumen.cantidadCancelados ? `<div class="caja"><span>Cancelados (no suman)</span><strong style="color:#f87171;">${REPORTE.resumen.cantidadCancelados}</strong></div>` : ''}
+                    </div>`;
+
+                caja.innerHTML = `
+                    <div class="reporte-tabla-caja">
+                        <table class="reporte-tabla">
+                            <thead><tr><th>Fecha</th><th>Nro de pedido</th><th>Cliente</th><th>Repartidor</th><th>Estado</th><th class="der">Valor (Gs.)</th></tr></thead>
+                            <tbody>
+                                ${filas.map(f => `
+                                    <tr class="${f.estado === 'cancelado' ? 'cancelado' : ''}">
+                                        <td>${escaparHtmlReporte(f.fecha)}</td>
+                                        <td>#${f.id}</td>
+                                        <td>${escaparHtmlReporte(f.cliente)}</td>
+                                        <td>${escaparHtmlReporte(f.repartidor)}</td>
+                                        <td>${escaparHtmlReporte(f.estado === 'entregado' ? 'Entregado' : f.estado === 'cancelado' ? 'Cancelado' : f.estado)}</td>
+                                        <td class="der">${formatoGs(f.valor)}</td>
+                                    </tr>`).join('')}
+                            </tbody>
+                            <tfoot><tr><td colspan="5">Total entregados (${REPORTE.resumen.cantidadEntregados})</td><td class="der">${formatoGs(REPORTE.resumen.totalEntregados)}</td></tr></tfoot>
+                        </table>
+                    </div>`;
+                botonPdf.disabled = false;
+            } catch (error) {
+                console.error(error);
+                caja.innerHTML = '<div class="no-data">Error al cargar el reporte. Probá de nuevo en unos segundos.</div>';
+            }
+        }
+
+        // ---------------- PDF propio (A4, tipografía Helvetica estándar) ----------------
+        const PDF_ANCHO_HELV = [278,278,355,556,556,889,667,191,333,333,389,584,278,333,278,278,556,556,556,556,556,556,556,556,556,556,278,278,584,584,584,556,1015,667,667,722,722,667,611,778,722,278,500,667,556,833,722,778,667,778,722,667,611,722,667,944,667,667,611,278,278,278,469,556,333,556,556,500,556,556,278,556,556,222,222,500,222,833,556,556,556,556,333,500,278,556,500,722,500,500,500,334,260,334,584];
+        const PDF_ANCHO_NEGRITA = [278,333,474,556,556,889,722,238,333,333,389,584,278,333,278,278,556,556,556,556,556,556,556,556,556,556,333,333,584,584,584,611,975,722,722,722,722,667,611,778,722,278,556,722,611,833,722,778,667,778,722,667,611,722,667,944,667,667,611,333,278,333,584,556,333,556,611,556,611,556,333,611,611,278,278,556,278,889,611,611,611,611,389,556,333,611,556,778,556,556,500,389,280,389,584];
+
+        function pdfAncho(texto, negrita, tamano) {
+            const tabla = negrita ? PDF_ANCHO_NEGRITA : PDF_ANCHO_HELV;
+            let total = 0;
+            for (const caracter of String(texto)) {
+                const base = caracter.normalize('NFD').charCodeAt(0);
+                total += (base >= 32 && base <= 126) ? tabla[base - 32] : 556;
+            }
+            return total * tamano / 1000;
+        }
+
+        function pdfRecortar(texto, negrita, tamano, maximo) {
+            let t = String(texto);
+            if (pdfAncho(t, negrita, tamano) <= maximo) return t;
+            while (t.length > 1 && pdfAncho(t + '...', negrita, tamano) > maximo) t = t.slice(0, -1);
+            return t + '...';
+        }
+
+        function pdfTexto(texto) {
+            const especiales = { '€': 0x80, '…': 0x85, '‘': 0x91, '’': 0x92, '“': 0x93, '”': 0x94, '•': 0x95, '–': 0x96, '—': 0x97 };
+            let salida = '';
+            for (const caracter of String(texto)) {
+                let codigo = especiales[caracter] !== undefined ? especiales[caracter] : caracter.charCodeAt(0);
+                if (codigo < 32) codigo = 32;
+                if (codigo > 255) codigo = 63;
+                const letra = String.fromCharCode(codigo);
+                salida += (letra === '(' || letra === ')' || letra === '\\') ? '\\' + letra : letra;
+            }
+            return salida;
+        }
+
+        function crearPdfReporte(datos) {
+            const A4_ANCHO = 595.28, A4_ALTO = 841.89, MARGEN = 40;
+            const COLUMNAS = [
+                { titulo: 'Fecha', ancho: 92, campo: 'fecha' },
+                { titulo: 'Pedido', ancho: 44, campo: 'nro' },
+                { titulo: 'Cliente', ancho: 116, campo: 'cliente' },
+                { titulo: 'Repartidor', ancho: 112, campo: 'repartidor' },
+                { titulo: 'Estado', ancho: 55, campo: 'estado' },
+                { titulo: 'Valor (Gs.)', ancho: 96.28, campo: 'valor', derecha: true }
+            ];
+            const TAM = 9, ALTO_FILA = 19;
+            const paginas = [];
+            let ops = null, y = 0;
+
+            const f = n => n.toFixed(2);
+            const texto = (x, yDesdeArriba, t, { negrita = false, tam = TAM, color = '0 g', derechaEn = null } = {}) => {
+                const ancho = pdfAncho(t, negrita, tam);
+                const px = derechaEn !== null ? derechaEn - ancho : x;
+                ops.push(`${color} BT /${negrita ? 'F2' : 'F1'} ${tam} Tf ${f(px)} ${f(A4_ALTO - yDesdeArriba)} Td (${pdfTexto(t)}) Tj ET`);
+            };
+            const rect = (x, yDesdeArriba, ancho, alto, color) => {
+                ops.push(`${color} rg ${f(x)} ${f(A4_ALTO - yDesdeArriba - alto)} ${f(ancho)} ${f(alto)} re f`);
+            };
+            const linea = (x1, y1, x2, color = '0.8 G', grosor = 0.6) => {
+                ops.push(`${color} ${grosor} w ${f(x1)} ${f(A4_ALTO - y1)} m ${f(x2)} ${f(A4_ALTO - y1)} l S`);
+            };
+
+            function encabezadoTabla() {
+                rect(MARGEN, y, A4_ANCHO - MARGEN * 2, ALTO_FILA, '0.12 0.16 0.28');
+                let x = MARGEN;
+                COLUMNAS.forEach(c => {
+                    if (c.derecha) texto(0, y + 13, c.titulo, { negrita: true, color: '1 g', derechaEn: x + c.ancho - 5 });
+                    else texto(x + 5, y + 13, c.titulo, { negrita: true, color: '1 g' });
+                    x += c.ancho;
+                });
+                y += ALTO_FILA;
+            }
+
+            function nuevaPagina(primera) {
+                ops = [];
+                paginas.push(ops);
+                y = MARGEN;
+                if (primera) {
+                    texto(MARGEN, y + 16, 'JMMotocourier', { negrita: true, tam: 18, color: '0.15 0.39 0.92 rg' });
+                    y += 26;
+                    texto(MARGEN, y + 12, 'Reporte de pedidos', { negrita: true, tam: 13 });
+                    y += 24;
+                    const lineas = [
+                        `Periodo: ${datos.filtros.periodo}`,
+                        `Estado: ${datos.filtros.estado}`,
+                        `Cliente: ${datos.filtros.cliente}`,
+                        `Repartidor: ${datos.filtros.repartidor}`
+                    ];
+                    lineas.forEach(l => {
+                        texto(MARGEN, y + 9, pdfRecortar(l, false, 9, A4_ANCHO - MARGEN * 2), { color: '0.25 g' });
+                        y += 13;
+                    });
+                    y += 10;
+                }
+                encabezadoTabla();
+            }
+
+            nuevaPagina(true);
+            datos.filas.forEach((fila, i) => {
+                if (y + ALTO_FILA > A4_ALTO - 70) nuevaPagina(false);
+                if (i % 2 === 1) rect(MARGEN, y, A4_ANCHO - MARGEN * 2, ALTO_FILA, '0.95 0.96 0.98');
+                const colorTexto = fila.estado === 'cancelado' ? '0.5 g' : '0 g';
+                let x = MARGEN;
+                COLUMNAS.forEach(c => {
+                    let valor = c.campo === 'nro' ? `#${fila.id}`
+                        : c.campo === 'valor' ? formatoGs(fila.valor)
+                        : c.campo === 'estado' ? (fila.estado === 'entregado' ? 'Entregado' : fila.estado === 'cancelado' ? 'Cancelado' : fila.estado)
+                        : fila[c.campo];
+                    valor = pdfRecortar(valor, false, TAM, c.ancho - 10);
+                    if (c.derecha) texto(0, y + 13, valor, { color: colorTexto, derechaEn: x + c.ancho - 5 });
+                    else texto(x + 5, y + 13, valor, { color: colorTexto });
+                    x += c.ancho;
+                });
+                linea(MARGEN, y + ALTO_FILA, A4_ANCHO - MARGEN);
+                y += ALTO_FILA;
+            });
+
+            // Totales al final (si no entran, van a una página nueva).
+            if (y + 70 > A4_ALTO - 60) { ops = []; paginas.push(ops); y = MARGEN; }
+            y += 12;
+            linea(MARGEN, y, A4_ANCHO - MARGEN, '0.15 G', 1.2);
+            y += 18;
+            texto(MARGEN, y, `Pedidos entregados: ${datos.resumen.cantidadEntregados}`, { negrita: true, tam: 10.5 });
+            texto(0, y, `Total entregados: Gs. ${formatoGs(datos.resumen.totalEntregados)}`, { negrita: true, tam: 10.5, derechaEn: A4_ANCHO - MARGEN });
+            if (datos.resumen.cantidadCancelados) {
+                y += 15;
+                texto(MARGEN, y, `Pedidos cancelados: ${datos.resumen.cantidadCancelados} (no suman al total)`, { tam: 9.5, color: '0.35 g' });
+            }
+
+            // Pie de página con numeración.
+            const ahora = fechaHoraReporte(new Date());
+            paginas.forEach((paginaOps, i) => {
+                ops = paginaOps;
+                texto(MARGEN, A4_ALTO - 24, `JMMotocourier - Reporte generado el ${ahora}`, { tam: 8, color: '0.45 g' });
+                texto(0, A4_ALTO - 24, `Pagina ${i + 1} de ${paginas.length}`, { tam: 8, color: '0.45 g', derechaEn: A4_ANCHO - MARGEN });
+            });
+
+            // Armado del archivo PDF.
+            const objetos = [];
+            objetos[1] = '<< /Type /Catalog /Pages 2 0 R >>';
+            objetos[3] = '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>';
+            objetos[4] = '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>';
+            const hijos = [];
+            let n = 5;
+            paginas.forEach(paginaOps => {
+                const contenido = paginaOps.join('\n');
+                hijos.push(`${n} 0 R`);
+                objetos[n] = `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${f(A4_ANCHO)} ${f(A4_ALTO)}] /Resources << /Font << /F1 3 0 R /F2 4 0 R >> >> /Contents ${n + 1} 0 R >>`;
+                objetos[n + 1] = `<< /Length ${contenido.length} >>\nstream\n${contenido}\nendstream`;
+                n += 2;
+            });
+            objetos[2] = `<< /Type /Pages /Kids [${hijos.join(' ')}] /Count ${paginas.length} >>`;
+
+            let pdf = '%PDF-1.4\n%\xE2\xE3\xCF\xD3\n';
+            const posiciones = [];
+            for (let i = 1; i < objetos.length; i++) {
+                posiciones[i] = pdf.length;
+                pdf += `${i} 0 obj\n${objetos[i]}\nendobj\n`;
+            }
+            const inicioXref = pdf.length;
+            pdf += `xref\n0 ${objetos.length}\n0000000000 65535 f \n`;
+            for (let i = 1; i < objetos.length; i++) pdf += `${String(posiciones[i]).padStart(10, '0')} 00000 n \n`;
+            pdf += `trailer\n<< /Size ${objetos.length} /Root 1 0 R >>\nstartxref\n${inicioXref}\n%%EOF`;
+
+            const bytes = new Uint8Array(pdf.length);
+            for (let i = 0; i < pdf.length; i++) bytes[i] = pdf.charCodeAt(i) & 255;
+            return bytes;
+        }
+
+        function descargarPdfReporte() {
+            if (!REPORTE.filas.length) return;
+            const bytes = crearPdfReporte(REPORTE);
+            const f = REPORTE.filtros;
+            const nombre = `Reporte_pedidos_${f.desde || 'inicio'}_a_${f.hasta || fechaISOLocal(new Date())}.pdf`;
+            const blob = new Blob([bytes], { type: 'application/pdf' });
+            const url = URL.createObjectURL(blob);
+            const enlace = document.createElement('a');
+            enlace.href = url;
+            enlace.download = nombre;
+            document.body.appendChild(enlace);
+            enlace.click();
+            enlace.remove();
+            setTimeout(() => URL.revokeObjectURL(url), 15000);
+        }
+    </script>
+
     <!-- Script de liquidaciones (admin y repartidores) -->
    <script src="js/liquidaciones-frontend.js"></script>
   <script>
