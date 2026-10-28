@@ -1679,6 +1679,61 @@ async function crearPedidoConTarifaInterno() {
     document.getElementById('grupoHistorialRepartidor').classList.toggle('hidden', usuarioRol !== 'admin');
 }
 
+        // El cliente solo puede seguir en el mapa a un repartidor que YA aceptó
+        // su pedido (o que ya va en camino). Mientras el pedido sigue "esperando
+        // repartidor" (ofrecido pero sin aceptar) no se muestra nada, porque ese
+        // repartidor todavía puede rechazarlo. Cuando el pedido se entrega o se
+        // cancela, deja de cumplirse y el mapa desaparece solo.
+        function pedidoSeguibleEnMapa(p) {
+            return !!p.repartidor_id
+                && ['asignado', 'en_retiro', 'en_camino'].includes(p.estado)
+                && (p.estado !== 'asignado' || !!p.aceptado_en);
+        }
+
+        let pedidosConTiempoEstimado = [];
+        let intervaloTiempoEstimado = null;
+
+        async function actualizarTiempoEstimadoPedidos() {
+            const lugares = document.querySelectorAll('.eta-pedido');
+            if (lugares.length === 0) return;
+            try {
+                const res = await fetch(`${API_URL}/repartidores`, { signal: AbortSignal.timeout(15000) });
+                const repartidores = await res.json();
+                lugares.forEach(lugar => {
+                    const pedido = pedidosConTiempoEstimado.find(p => Number(p.id) === Number(lugar.dataset.pedido));
+                    if (!pedido) return;
+                    const repartidor = repartidores.find(r => Number(r.id) === Number(pedido.repartidor_id));
+                    const primerNombre = escaparTextoMapa(((repartidor && repartidor.nombre) || 'Tu repartidor').trim().split(' ')[0]);
+                    const posicion = repartidor && repartidor.gps_activo ? latLngDe(repartidor, 'ubicacion') : null;
+                    if (!posicion) {
+                        lugar.innerHTML = `🛵 <strong>${primerNombre}</strong> aceptó tu pedido. Todavía no vemos su ubicación.`;
+                        return;
+                    }
+                    const yendoAlRetiro = pedido.estado !== 'en_camino';
+                    const distancia = calcularDistanciaHastaRetiroKm(
+                        posicion[0], posicion[1], coordenadasPedido(pedido, yendoAlRetiro ? 'origen' : 'destino')
+                    );
+                    const minutos = distancia === null ? null : estimarMinutosLlegada(Number(distancia));
+                    const destino = yendoAlRetiro ? 'al retiro' : 'a la entrega';
+                    const tiempo = minutos === null ? '' : (minutos <= 1 ? ' Está llegando.' : ` Llega ${destino} en unos <strong>${minutos} min</strong>.`);
+                    const vieja = ubicacionEsReciente(repartidor) ? '' : ` <span style="color:#fbbf24;">(última posición ${textoHaceTiempo(repartidor.segundos_desde_ubicacion)})</span>`;
+                    lugar.innerHTML = `🛵 <strong>${primerNombre}</strong>${yendoAlRetiro ? ' va hacia el retiro.' : ' ya retiró y va a la entrega.'}${tiempo}${vieja}`;
+                });
+            } catch (error) {
+                console.error(error);
+            }
+        }
+
+        function iniciarTiempoEstimadoPedidos() {
+            actualizarTiempoEstimadoPedidos();
+            if (intervaloTiempoEstimado !== null) return;
+            intervaloTiempoEstimado = setInterval(() => {
+                const seccion = document.getElementById('seccionPedidos');
+                const visible = seccion && !seccion.classList.contains('hidden');
+                if (visible && document.visibilityState === 'visible') actualizarTiempoEstimadoPedidos();
+            }, 15000);
+        }
+
         async function cargarPedidos() {
             try {
                 const res = await fetch(`${API_URL}/pedidos`);
@@ -1707,10 +1762,12 @@ async function crearPedidoConTarifaInterno() {
                                     <div style="color: #2563eb; font-size: 12px;">${p.tipo}</div>
                                 </div>
                                 ${p.pago_servicio_retiro ? `<div style="font-size:12px; color:#fbbf24; margin-bottom:8px;">🧾 Le pagás la tarifa de servicio al repartidor al retirar.</div>` : ''}
+                                ${pedidoSeguibleEnMapa(p) ? `
+                                <div class="eta-pedido" data-pedido="${p.id}" style="font-size:14px; color:#e5edff; background:rgba(37,99,235,.15); border:1px solid rgba(37,99,235,.4); border-radius:8px; padding:10px; margin-bottom:8px;">🛵 Buscando la ubicación de tu repartidor…</div>
+                                <button onclick="abrirMapaPedido(${p.id})" style="width:100%; margin:0 0 8px; padding:12px; background:#2563eb; border:none; border-radius:8px; color:#fff; font-size:15px; font-weight:700; cursor:pointer;">📍 Seguir mi pedido en el mapa</button>` : ''}
                                 ${p.repartidor_id && !['entregado', 'cancelado'].includes(p.estado) ? `
                                 <div style="display:flex; gap:8px;">
                                     <button onclick="abrirChat(${p.id})" style="flex:1; padding: 8px; background: #9c27b0; border: none; border-radius: 6px; color: #fff; cursor: pointer;">💬 Chat</button>
-                                    <button onclick="abrirMapaPedido(${p.id})" style="flex:1; padding: 8px; background: #2563eb; border: none; border-radius: 6px; color: #fff; cursor: pointer;">📍 Ver ubicación</button>
                                 </div>` : ''}
                                 ${['pendiente', 'asignado'].includes(p.estado) ? `
                                 <button onclick="cancelarMiPedido(${p.id})" style="width:100%; margin-top:8px; padding:8px; background:transparent; border:1px solid #ef4444; border-radius:6px; color:#ef4444; cursor:pointer;">✖ Cancelar pedido</button>` : ''}
@@ -1727,6 +1784,8 @@ async function crearPedidoConTarifaInterno() {
                     });
                 }
                 document.getElementById('listaPedidos').innerHTML = html;
+                pedidosConTiempoEstimado = misPedidos.filter(pedidoSeguibleEnMapa);
+                iniciarTiempoEstimadoPedidos();
             } catch (error) {
                 console.error(error);
             }
@@ -4312,8 +4371,7 @@ async function cargarHistorial() {
                     return;
                 }
 
-                const candidatos = misPedidos
-                    .filter(p => p.repartidor_id && ['asignado', 'en_retiro', 'en_camino'].includes(p.estado));
+                const candidatos = misPedidos.filter(pedidoSeguibleEnMapa);
 
                 // Si se abrió el mapa desde un pedido puntual (botón "Ver
                 // ubicación" en la tarjeta), se sigue a ESE pedido. Si no
@@ -4633,6 +4691,7 @@ async function cargarHistorial() {
         }
 
         let intervaloNotificacionesCliente = null;
+        let firmaPedidosCliente = null;
         function iniciarNotificaciones() {
             if (intervaloNotificacionesCliente !== null) return;
             // Se hace una primera revisión enseguida (así los mensajes que ya
@@ -4643,6 +4702,16 @@ async function cargarHistorial() {
                         const res = await fetch(`${API_URL}/pedidos`, { signal: AbortSignal.timeout(15000) });
                         const pedidos = await res.json();
                         const misPedidos = pedidos.filter(p => p.cliente_id === usuarioId);
+
+                        // Si cambió el estado de algún pedido y el cliente está mirando
+                        // su lista, se vuelve a pintar (así aparece el botón del mapa
+                        // en cuanto el repartidor acepta, o desaparece al entregar).
+                        const firmaPedidos = misPedidos.map(p => `${p.id}:${p.estado}:${p.repartidor_id || ''}:${p.aceptado_en ? 1 : 0}`).join('|');
+                        if (firmaPedidosCliente !== null && firmaPedidos !== firmaPedidosCliente) {
+                            const seccionLista = document.getElementById('seccionPedidos');
+                            if (seccionLista && !seccionLista.classList.contains('hidden')) cargarPedidos();
+                        }
+                        firmaPedidosCliente = firmaPedidos;
 
                         misPedidos.forEach(p => {
                             if (p.estado === 'asignado' && p.aceptado_en && !notificacionesVistas.includes(p.id)) {
