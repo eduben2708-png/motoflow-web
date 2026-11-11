@@ -4988,6 +4988,8 @@ async function cargarHistorial() {
         // no hace falta tocar el servidor. El PDF se arma acá mismo, sin
         // librerías externas.
         // ---------------------------------------------------------------
+        // Porcentaje de comisión de JMMotocourier que se muestra en el Reporte sobre lo facturado.
+        const PORCENTAJE_COMISION_REPORTE = 5;
         const REPORTE = { filas: [], resumen: null, filtros: null, listasCargadas: false };
 
         function escaparHtmlReporte(texto) {
@@ -5132,9 +5134,12 @@ async function cargarHistorial() {
                 const cancelados = filas.filter(f => f.estado === 'cancelado');
                 REPORTE.filas = filas;
                 REPORTE.filtros = textoFiltrosReporte();
+                const totalEntregados = entregados.reduce((s, f) => s + f.valor, 0);
                 REPORTE.resumen = {
                     cantidadEntregados: entregados.length,
-                    totalEntregados: entregados.reduce((s, f) => s + f.valor, 0),
+                    totalEntregados,
+                    // Comisión de JMMotocourier: 5% de lo facturado (pedidos entregados).
+                    comision: Math.round(totalEntregados * PORCENTAJE_COMISION_REPORTE / 100),
                     cantidadCancelados: cancelados.length
                 };
 
@@ -5147,6 +5152,7 @@ async function cargarHistorial() {
                     <div class="reporte-resumen">
                         <div class="caja"><span>Pedidos entregados</span><strong>${REPORTE.resumen.cantidadEntregados}</strong></div>
                         <div class="caja"><span>Total entregados</span><strong style="color:#4ade80;">Gs. ${formatoGs(REPORTE.resumen.totalEntregados)}</strong></div>
+                        <div class="caja"><span>Comisión (${PORCENTAJE_COMISION_REPORTE}%)</span><strong style="color:#fbbf24;">Gs. ${formatoGs(REPORTE.resumen.comision)}</strong></div>
                         ${REPORTE.resumen.cantidadCancelados ? `<div class="caja"><span>Cancelados (no suman)</span><strong style="color:#f87171;">${REPORTE.resumen.cantidadCancelados}</strong></div>` : ''}
                     </div>`;
 
