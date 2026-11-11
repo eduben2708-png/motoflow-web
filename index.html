@@ -1694,6 +1694,10 @@ async function crearPedidoConTarifaInterno() {
             try {
                 const repartidor = await obtenerMiRepartidor();
                 esRepartidor = usuarioRol === 'repartidor' || Boolean(repartidor);
+                if (repartidor && repartidor.bloqueado_admin) {
+                    avisarCuentaBloqueada();
+                    return;
+                }
             } catch (error) {
                 console.error('No se pudo identificar el tipo de cuenta.', error);
             }
@@ -1712,6 +1716,46 @@ async function crearPedidoConTarifaInterno() {
             iniciarNotificaciones();
             prepararAvisosNoRepartidor();
             abrirChatPendienteSiHay();
+        }
+
+        // Repartidor bloqueado por el administrador: se le avisa y se cierra su sesión.
+        let avisandoCuentaBloqueada = false;
+        function avisarCuentaBloqueada() {
+            if (avisandoCuentaBloqueada) return;
+            avisandoCuentaBloqueada = true;
+            alert('Tu cuenta de repartidor fue bloqueada por la administración de JMMotocourier. Para más información comunicate con la administración.');
+            logout();
+            avisandoCuentaBloqueada = false;
+        }
+
+        // Bloquear / desbloquear repartidor (panel de administrador).
+        async function alternarBloqueoRepartidor(id, bloquear) {
+            const pregunta = bloquear
+                ? '¿Bloquear a este repartidor? No va a recibir pedidos y no va a poder usar la app hasta que lo desbloquees.'
+                : '¿Desbloquear a este repartidor? Va a poder volver a usar la app y recibir pedidos.';
+            if (!confirm(pregunta)) return;
+
+            try {
+                const res = await fetch(`${API_URL}/repartidores/${id}/bloqueo`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ bloqueado: bloquear })
+                });
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.error || 'No se pudo cambiar el bloqueo');
+
+                if (bloquear) {
+                    const activos = data.pedidos_activos || [];
+                    alert(activos.length
+                        ? `Repartidor bloqueado.\n\n⚠️ Tiene ${activos.length} pedido(s) en curso: ${activos.map(p => `#${p.id} (${p.estado})`).join(', ')}.\nReasignalos o cancelalos desde Admin.`
+                        : 'Repartidor bloqueado. No tenía pedidos en curso.');
+                } else {
+                    alert('Repartidor desbloqueado.');
+                }
+                cargarRepartidores();
+            } catch (error) {
+                alert('Error: ' + error.message);
+            }
         }
 
         function configurarMenuSegunCuenta() {
@@ -1970,7 +2014,7 @@ async function crearPedidoConTarifaInterno() {
                                     <div><div class="stat-label">Entregas</div><div class="stat-value">${r.total_entregas || 0}</div></div>
                                     <div><div class="stat-label">Rating</div><div class="stat-value">⭐ ${r.calificacion || 0}</div></div>
                                 </div>
-                                <div class="admin-fila"><span>Estado</span><strong>${r.estado_aprobacion}</strong></div>
+                                <div class="admin-fila"><span>Estado</span><strong>${r.estado_aprobacion}${r.bloqueado_admin ? ' · <span style="color:#f87171;">⛔ BLOQUEADO</span>' : ''}</strong></div>
                                 ${r.estado_aprobacion === 'pendiente'
                                     ? `<button class="btn-asignar" onclick="aprobarRepartidor(${r.id})" style="background:#4caf50;">Aprobar repartidor</button>`
                                     : `
@@ -1980,6 +2024,7 @@ async function crearPedidoConTarifaInterno() {
                                         </div>
                                     `}
                                 <button class="btn-asignar" style="background:#475569; width:100%; margin-top:8px;" onclick="abrirEdicionRepartidor(${r.id})">✏️ Editar datos</button>
+                                <button class="btn-asignar" style="background:${r.bloqueado_admin ? '#16a34a' : '#b91c1c'}; width:100%; margin-top:8px;" onclick="alternarBloqueoRepartidor(${r.id}, ${r.bloqueado_admin ? 'false' : 'true'})">${r.bloqueado_admin ? '✅ Desbloquear repartidor' : '⛔ Bloquear repartidor'}</button>
                                 <div class="registro-repartidor hidden" id="edicionRepartidor-${r.id}" style="margin-top:10px;">
                                     <div class="registro-repartidor-grid">
                                         <div class="form-group"><input id="editNombre-${r.id}" placeholder="Nombre completo" value="${r.nombre || ''}"></div>
@@ -3303,6 +3348,11 @@ async function crearPedidoConTarifaInterno() {
                 if (!repartidor) {
                     estadoGps.textContent = 'Esta cuenta no está registrada como repartidor.';
                     lista.innerHTML = '<div class="no-data">Ingresá con el número de teléfono que fue registrado como repartidor.</div>';
+                    return;
+                }
+
+                if (repartidor.bloqueado_admin) {
+                    avisarCuentaBloqueada();
                     return;
                 }
 
@@ -4700,7 +4750,7 @@ async function cargarHistorial() {
                     filas.push(`
                         <div class="pedido-card" style="display:flex; justify-content:space-between; align-items:center; gap:8px; padding:10px 12px;">
                             <div style="font-size:13px; line-height:1.5;">
-                                <span style="color:${color};">●</span> <strong>${nombre}</strong>${r.bloqueado ? ' ⛔ bloqueado' : ''}<br>
+                                <span style="color:${color};">●</span> <strong>${nombre}</strong>${(r.bloqueado || r.bloqueado_admin) ? ' ⛔ bloqueado' : ''}<br>
                                 <span style="color:#94a3b8;">${estadoTexto} · ${textoHaceTiempo(r.segundos_desde_ubicacion)}</span>
                             </div>
                             <button type="button" onclick="centrarRepartidorMapaAdmin(${id})" style="width:auto; margin:0; padding:6px 12px; font-size:12px;">📍 Ver</button>
