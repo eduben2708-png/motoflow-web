@@ -2404,8 +2404,11 @@ async function crearPedidoConTarifaInterno() {
 
                 const pedidos = await resPedidos.json();
                 const todosLosRepartidores = await resRepartidores.json();
+                // Un repartidor bloqueado por el administrador no cuenta como repartidor del
+                // equipo: no entra en el conteo ni se le pueden asignar pedidos.
+                const sinBloqueados = todosLosRepartidores.filter(repartidor => !repartidor.bloqueado_admin);
                 const repartidores = todosLosRepartidores
-                    .filter(repartidor => repartidor.estado_aprobacion === 'aprobado');
+                    .filter(repartidor => repartidor.estado_aprobacion === 'aprobado' && !repartidor.bloqueado_admin);
                 const registros = resRegistros.ok
                     ? await resRegistros.json()
                     : { clientes: 0, repartidores: todosLosRepartidores.length };
@@ -2417,7 +2420,7 @@ async function crearPedidoConTarifaInterno() {
                     <div class="admin-estadistica"><span class="stat-label">En camino</span><span class="numero">${contar('en_camino')}</span></div>
                     <div class="admin-estadistica"><span class="stat-label">Entregados</span><span class="numero">${contar('entregado')}</span></div>
                     <div class="admin-estadistica" style="cursor:pointer;" onclick="mostrarSeccion('clientes')"><span class="stat-label">Clientes registrados</span><span class="numero">${registros.clientes}</span></div>
-                    <div class="admin-estadistica" style="cursor:pointer;" onclick="mostrarSeccion('repartidores')"><span class="stat-label">Repartidores registrados</span><span class="numero">${todosLosRepartidores.length}</span></div>
+                    <div class="admin-estadistica" style="cursor:pointer;" onclick="mostrarSeccion('repartidores')"><span class="stat-label">Repartidores registrados</span><span class="numero">${sinBloqueados.length}</span></div>
                 `;
 
                 const pedidosOperativos = pedidos.filter(pedido =>
@@ -2448,10 +2451,13 @@ async function crearPedidoConTarifaInterno() {
                 // Solo se pueden elegir repartidores con el GPS activo; los demás
                 // aparecen deshabilitados (salvo el que ya tiene el pedido, para no
                 // romper su selección actual).
-                const opcionesRepartidor = (repartidorActualId = '') => repartidores.map(repartidor => {
-                    const activo = Boolean(repartidor.gps_activo);
+                const opcionesRepartidor = (repartidorActualId = '') => todosLosRepartidores
+                    .filter(repartidor => repartidor.estado_aprobacion === 'aprobado'
+                        && (!repartidor.bloqueado_admin || String(repartidor.id) === String(repartidorActualId)))
+                    .map(repartidor => {
+                    const activo = Boolean(repartidor.gps_activo) && !repartidor.bloqueado_admin;
                     const esActual = String(repartidor.id) === String(repartidorActualId);
-                    const marca = activo ? '🟢' : '⚫ sin GPS';
+                    const marca = repartidor.bloqueado_admin ? '⛔ bloqueado' : (activo ? '🟢' : '⚫ sin GPS');
                     return `<option value="${repartidor.id}"${activo || esActual ? '' : ' disabled'}${esActual ? ' selected' : ''}>${repartidor.nombre || 'Repartidor'} #${repartidor.id} · ${marca}</option>`;
                 }).join('');
 
@@ -4783,7 +4789,7 @@ async function cargarHistorial() {
                 const repartidores = await resRepartidores.json();
                 const pedidos = await resPedidos.json();
 
-                const aprobados = repartidores.filter(r => r.estado_aprobacion === 'aprobado');
+                const aprobados = repartidores.filter(r => r.estado_aprobacion === 'aprobado' && !r.bloqueado_admin);
                 const conGps = aprobados.filter(r => r.gps_activo && latLngDe(r, 'ubicacion'));
                 const enCurso = pedidos.filter(p => p.repartidor_id && ['asignado', 'en_retiro', 'en_camino'].includes(p.estado));
 
