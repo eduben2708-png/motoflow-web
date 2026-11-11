@@ -68,6 +68,20 @@
     <div class="bg-decor" aria-hidden="true"></div>
     <div class="container">
         <!-- MODAL: ¿Cómo usar? (videos tutoriales) -->
+        <!-- MODAL: foto de perfil del repartidor (se pide cada 8 días) -->
+        <div id="modalFotoPerfil" class="hidden" style="position:fixed; inset:0; background:rgba(0,0,0,0.8); z-index:1001; display:flex; align-items:center; justify-content:center; padding:16px;">
+            <div class="card" style="max-width:360px; width:100%; margin:0; text-align:center;">
+                <h3 style="margin-bottom:8px;">📷 Actualizá tu foto</h3>
+                <p style="font-size:14px; color:var(--text-muted); margin-bottom:12px;">Sacate una foto de la cara, con buena luz y sin gorra ni anteojos oscuros. Se la mostramos a los clientes para que te reconozcan.</p>
+                <img id="fotoPerfilVista" alt="" style="display:none; width:160px; height:160px; border-radius:50%; object-fit:cover; border:3px solid var(--color-primary); margin:0 auto 12px;">
+                <input id="fotoPerfilCamara" type="file" accept="image/*" capture="user" class="hidden" onchange="fotoPerfilTomada(this)">
+                <button onclick="document.getElementById('fotoPerfilCamara').click()">📷 Abrir la cámara</button>
+                <button id="btnGuardarFotoPerfil" onclick="guardarFotoPerfil()" disabled style="background:#16a34a; margin-top:8px; opacity:.5;">Guardar foto</button>
+                <button onclick="cerrarModalFotoPerfil()" style="background:#475569; margin-top:8px;">Más tarde</button>
+                <div id="estadoFotoPerfil" style="font-size:13px; margin-top:8px; min-height:18px;"></div>
+            </div>
+        </div>
+
         <div id="modalAyuda" class="hidden" style="position:fixed; inset:0; background:rgba(0,0,0,0.8); z-index:1000; display:flex; align-items:center; justify-content:center; padding:16px;" onclick="if(event.target===this) cerrarAyuda()">
             <div class="card" style="max-width:380px; width:100%; margin:0; max-height:92vh; overflow-y:auto;">
                 <h3 style="margin-bottom:12px;">¿Cómo usar JMMotocourier?</h3>
@@ -483,6 +497,10 @@
                     </div>
                     <div id="avisoGpsApagado" class="hidden" style="margin-bottom:10px; padding:12px; background:rgba(239,68,68,.15); border:1px solid #ef4444; border-radius:var(--radius-md); color:#fca5a5; font-size:14px; font-weight:700;">
                         ⚠️ Estás desconectado: no recibís pedidos nuevos. Tocá "Activar GPS".
+                    </div>
+                    <div id="avisoFotoVencida" class="hidden" style="margin-bottom:10px; padding:12px; background:rgba(251,191,36,.12); border:1px solid #fbbf24; border-radius:var(--radius-md); color:#fde68a; font-size:14px;">
+                        📷 Hace más de 8 días que no actualizás tu foto de perfil. Los clientes la usan para reconocerte.
+                        <button onclick="abrirModalFotoPerfil()" style="margin:8px 0 0; padding:10px; font-size:14px;">📷 Sacarme la foto ahora</button>
                     </div>
                     <div style="font-size:12px; color:var(--text-muted); margin:0 0 10px;">📱 Dejá la pantalla encendida y el celular cargando para no perder pedidos.</div>
                     <button id="btnProbarNotificaciones" onclick="probarNotificacionesRepartidor()" style="background:transparent; box-shadow:none; border:1px solid var(--color-border-strong); color:var(--text-primary); font-size:13px; padding:8px 12px; margin:0 0 10px;">🔔 Probar que me lleguen los avisos</button>
@@ -1718,6 +1736,75 @@ async function crearPedidoConTarifaInterno() {
             abrirChatPendienteSiHay();
         }
 
+        // Foto de perfil cada 8 días: al abrir la app, si la última foto es vieja, se le
+        // recuerda al repartidor (una vez por sesión) y queda un aviso fijo en Mi Ruta.
+        let fotoPerfilNueva = null;
+        let recordatorioFotoMostrado = false;
+        let repartidorIdFoto = null;
+
+        function actualizarAvisoFotoPerfil(repartidor) {
+            const vencida = Boolean(Number(repartidor.foto_vencida));
+            repartidorIdFoto = repartidor.id;
+            document.getElementById('avisoFotoVencida').classList.toggle('hidden', !vencida);
+            if (vencida && !recordatorioFotoMostrado) {
+                recordatorioFotoMostrado = true;
+                abrirModalFotoPerfil();
+            }
+        }
+
+        function abrirModalFotoPerfil() {
+            fotoPerfilNueva = null;
+            document.getElementById('fotoPerfilCamara').value = '';
+            document.getElementById('fotoPerfilVista').style.display = 'none';
+            document.getElementById('estadoFotoPerfil').textContent = '';
+            const guardar = document.getElementById('btnGuardarFotoPerfil');
+            guardar.disabled = true;
+            guardar.style.opacity = '.5';
+            document.getElementById('modalFotoPerfil').classList.remove('hidden');
+        }
+
+        function cerrarModalFotoPerfil() {
+            document.getElementById('modalFotoPerfil').classList.add('hidden');
+        }
+
+        async function fotoPerfilTomada(input) {
+            const estado = document.getElementById('estadoFotoPerfil');
+            try {
+                fotoPerfilNueva = await leerFotoReducida(input.files[0]);
+                const vista = document.getElementById('fotoPerfilVista');
+                vista.src = fotoPerfilNueva || '';
+                vista.style.display = fotoPerfilNueva ? 'block' : 'none';
+                const guardar = document.getElementById('btnGuardarFotoPerfil');
+                guardar.disabled = !fotoPerfilNueva;
+                guardar.style.opacity = fotoPerfilNueva ? '1' : '.5';
+                estado.textContent = '';
+            } catch (error) {
+                fotoPerfilNueva = null;
+                input.value = '';
+                estado.textContent = error.message;
+            }
+        }
+
+        async function guardarFotoPerfil() {
+            const estado = document.getElementById('estadoFotoPerfil');
+            if (!fotoPerfilNueva || !repartidorIdFoto) return;
+            estado.textContent = 'Guardando…';
+            try {
+                const res = await fetch(`${API_URL}/repartidores/${repartidorIdFoto}/foto`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ foto: fotoPerfilNueva })
+                });
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.error || 'No se pudo guardar la foto');
+                estado.textContent = '¡Listo! Tu foto quedó actualizada.';
+                document.getElementById('avisoFotoVencida').classList.add('hidden');
+                setTimeout(cerrarModalFotoPerfil, 1000);
+            } catch (error) {
+                estado.textContent = error.message;
+            }
+        }
+
         // Repartidor bloqueado por el administrador: se le avisa y se cierra su sesión.
         let avisandoCuentaBloqueada = false;
         function avisarCuentaBloqueada() {
@@ -2010,6 +2097,7 @@ async function crearPedidoConTarifaInterno() {
                                 </div>
                                 <div class="admin-fila"><span>Teléfono</span><strong>+595 ${r.telefono || '—'}</strong></div>
                                 <div class="admin-fila"><span>Moto</span><strong>${[r.marca_moto, r.modelo_moto, r.color_moto].filter(Boolean).join(' · ') || '—'}${r.tiene_foto ? '' : ' · sin foto'}</strong></div>
+                                <div class="admin-fila"><span>Foto de perfil</span><strong style="color:${Number(r.foto_vencida) ? '#fbbf24' : 'inherit'};">${r.tiene_foto && r.dias_desde_foto !== null ? (Number(r.dias_desde_foto) === 0 ? 'hoy' : `hace ${r.dias_desde_foto} día(s)`) : 'sin fecha'}${Number(r.foto_vencida) ? ' · ⚠️ a renovar' : ''}</strong></div>
                                 <div class="info-row">
                                     <div><div class="stat-label">Entregas</div><div class="stat-value">${r.total_entregas || 0}</div></div>
                                     <div><div class="stat-label">Rating</div><div class="stat-value">⭐ ${r.calificacion || 0}</div></div>
@@ -3373,6 +3461,8 @@ async function crearPedidoConTarifaInterno() {
                         </div>`;
                     return;
                 }
+
+                actualizarAvisoFotoPerfil(repartidor);
 
                 mostrarEstadoGps(repartidor.gps_activo ? 'GPS activo' : 'Desconectado · tocá "Activar GPS" para recibir pedidos', Boolean(repartidor.gps_activo));
                 actualizarBotonConexionGps();
