@@ -60,6 +60,9 @@
         .ruta-sec-llamar { background:#15803d; }
         .ruta-sec-whatsapp { background:#1fa855; }
         .ruta-sec-navegar { background:#2563eb; }
+        /* Sello del creador de la app: chico y discreto, al pie de la pantalla de inicio y de las pantallas principales */
+        .firma-bentech { text-align:center; font-size:11px; letter-spacing:.04em; color:var(--text-muted, #64748b); margin:18px 0 4px; }
+        .firma-bentech strong { color:var(--text-secondary, #8899bb); font-weight:700; }
             /* Logo nuevo (PNG con fondo transparente): sin recorte circular, para que no se corte el texto */
         .logo-img { width:200px; height:200px; border-radius:0; object-fit:contain; box-shadow:none; filter:drop-shadow(0 8px 18px rgba(249,115,22,0.30)); }
     </style>
@@ -130,6 +133,7 @@
                 </div>
             </div>
             <button id="btnAyudaLogin" class="hidden" onclick="abrirAyuda()" style="background:transparent; box-shadow:none; border:1px solid var(--color-border-strong); color:var(--text-primary); margin-top:12px;">❓ ¿Cómo usar?</button>
+            <div class="firma-bentech">from: <strong>Bentech</strong></div>
         </div>
 
         <!-- REGISTRO / CONTRASEÑA DE CLIENTE (primera vez, o recuperación) -->
@@ -624,6 +628,8 @@
                     <div id="reporteResumen"></div>
                     <div id="reporteTabla"></div>
                 </div>
+
+                <div class="firma-bentech">from: <strong>Bentech</strong></div>
             </div>
         </div>
     </div>
